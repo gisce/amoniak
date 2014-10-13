@@ -35,7 +35,7 @@ Working with MongoDB
 Working with Sentry
 -------------------
 
-SENTRY_DSN
+* SENTRY_DSN
 
 Be sure to use a synchronous protocol
 
