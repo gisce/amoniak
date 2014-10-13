@@ -1,0 +1,7 @@
+ERPpeek==1.6
+empowering==0.7.0
+modeldict==0.5.0
+pymongo==2.7.2
+raven==5.0.0
+rq==0.3.13
+times==0.7
