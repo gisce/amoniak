@@ -127,3 +127,7 @@ def setup_logging(logfile=None):
     sentry_handler = SentryHandler(sentry, level=logging.ERROR)
     amon_logger.addHandler(sentry_handler)
     amon_logger.info('Amon logger setup')
+
+
+def sorted_by_key(data, key, reverse=False):
+    return sorted(data, key=lambda k: k[key], reverse=reverse)
