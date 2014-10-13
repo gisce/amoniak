@@ -231,7 +231,7 @@ def push_contracts(contracts_id):
             if check_response(response, amon_data):
                 upd.append(response)
         etag = upd[-1]['_etag']
-        logger.info("Polissa id: %s -> etag %s" % (cid, etag))
+        logger.info("Polissa id: %s -> etag %s" % (pol['name'], etag))
         O.GiscedataPolissa.write(cid, {'etag': etag})
 
 
