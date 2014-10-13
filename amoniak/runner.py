@@ -26,7 +26,7 @@ if __name__ == '__main__':
         enqueue_measures()
 
     elif sys.argv[1] == 'enqueue_contracts':
-        logger.info('Enqueuing new contracts')
-        enqueue_new_contracts()
         logger.info('Enqueuing updated contracts')
         enqueue_contracts()
+        logger.info('Enqueuing new contracts')
+        enqueue_new_contracts()
