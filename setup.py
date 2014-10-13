@@ -12,11 +12,11 @@ INSTALL_REQUIRES = [
 
 setup(
     name='amoniak',
-    version='0.1.0',
+    version='0.1.1',
     packages=['amoniak'],
     url='http://gisce.net',
     license='MIT',
-    install_requires=['empowering', 'erppeek', 'pymongo', 'rq', 'modeldict'],
+    install_requires=INSTALL_REQUIRES,
     author='GISCE-TI, S.L.',
     author_email='ti@gisce.net',
     description='AMON Tools for GISCE-ERP'
