@@ -3,9 +3,59 @@ amoniak
 
 AMON Library and utils to convert GISCE-ERP objects to AMON data
 
+-------
+Install
+-------
 
+pip install amoniak
+
+
+---------------
+Running amoniak
+---------------
+
+.. code-block:: shell
+
+  $ amoniak --help
+  
+------------------
+Available commands
+------------------
+
+All the commands work with environment variables, see the next section for available options.
+
+
+* **Enqueue all AMON measures**: Used to initialize Empowering Insight Engine Service.
+  
+  .. code-block:: shell
+  
+    $ amoniak enqueue_all_amon_measures
+    
+* **Enqueue measures**: Enqueue new measures for the contracts which have and etag searching the last measure
+  created in the Insight Engine
+  
+  .. code-block:: shell
+  
+    $ amoniak enqueue_measures
+
+* **Enqueue contracts**: Used to upload contracts. This command will upload firstly the updated contracts:
+  the ones which have an etag and have been updated after the ``_updated``. Then will upload new contracts:
+  searching for the ones which have a smart metter and no etag in the contract and the contracte was created
+  after the las ``_updated`` in the Insight Engine.
+  
+  .. code-block:: shell
+  
+    $ amoniak enqueue_contracts
+
+
+
+----------------------------------
 Working with environment variables
 ----------------------------------
+
+
+Empowering services
+-------------------
 
 To work with **Empowering services** you must define the following environment variables:
 
