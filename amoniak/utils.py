@@ -4,6 +4,7 @@ import logging
 import os
 import re
 
+from amoniak import VERSION
 from empowering import Empowering
 import erppeek
 import pymongo
@@ -124,6 +125,7 @@ def setup_logging(logfile=None):
         hdlr.setFormatter(formatter)
         amon_logger.addHandler(hdlr)
     sentry = Client()
+    sentry.tags_context({'version': VERSION})
     sentry_handler = SentryHandler(sentry, level=logging.ERROR)
     amon_logger.addHandler(sentry_handler)
     amon_logger.info('Amon logger setup')
