@@ -7,7 +7,9 @@ AMON Library and utils to convert GISCE-ERP objects to AMON data
 Install
 -------
 
-pip install amoniak
+.. code-block:: shell
+
+  $ pip install amoniak
 
 
 ---------------
