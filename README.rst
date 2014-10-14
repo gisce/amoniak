@@ -26,6 +26,9 @@ Available commands
 
 All the commands work with environment variables, see the next section for available options.
 
+By default all commands work with RQ Queues, but it can be run in sync mode using environment variables
+(See working with RQ section) or with the parametter ``--no-async`` in the amoniak command.
+
 
 * **Enqueue all AMON measures**: Used to initialize Empowering Insight Engine Service.
   
@@ -49,6 +52,25 @@ All the commands work with environment variables, see the next section for avail
   
     $ amoniak enqueue_contracts
 
+
+---------------
+Running workers
+---------------
+
+Workers are the default RQ Workers but you must setup the necessary environment variables to work properly
+
+To execute contracts's tasks
+
+.. code-block:: shell
+
+  $ rqworker contracts
+  
+  
+To execute measures's tasks
+
+.. code-block:: shell
+
+  $ rq-worker measures
 
 
 ----------------------------------
@@ -90,4 +112,10 @@ Working with Sentry
 * SENTRY_DSN
 
 Be sure to use a synchronous protocol
+
+
+Working with RQ
+---------------
+
+* RQ_ASYNC 
 
