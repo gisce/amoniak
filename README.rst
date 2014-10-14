@@ -1,7 +1,11 @@
 amoniak
 =======
 
-AMON Library and utils to convert GISCE-ERP objects to AMON data
+AMON Library and utils to convert GISCE-ERP objects to AMON data.
+
+The objects that can be converted to AMON format are: Profiles, Devices, Contracts, Metering points.
+Also there is a command line executable to send data to the Empowering Insight Engine, and can be
+used to initialize the data from the utility and/or sending data to the Insight Engine in batch mode.
 
 -------
 Install
