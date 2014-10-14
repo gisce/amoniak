@@ -4,6 +4,7 @@ import logging
 import os
 import re
 
+from amoniak import VERSION
 from empowering import Empowering
 import erppeek
 import pymongo
@@ -91,7 +92,7 @@ def config_from_environment(env_prefix, env_required=None, **kwargs):
 
 
 def setup_peek(**kwargs):
-    peek_config = config_from_environment('PEEK', **kwargs)
+    peek_config = config_from_environment('PEEK', ['server'], **kwargs)
     logger.info("Using PEEK CONFIG: %s" % peek_config)
     return erppeek.Client(**peek_config)
 
@@ -124,6 +125,7 @@ def setup_logging(logfile=None):
         hdlr.setFormatter(formatter)
         amon_logger.addHandler(hdlr)
     sentry = Client()
+    sentry.tags_context({'version': VERSION})
     sentry_handler = SentryHandler(sentry, level=logging.ERROR)
     amon_logger.addHandler(sentry_handler)
     amon_logger.info('Amon logger setup')

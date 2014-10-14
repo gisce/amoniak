@@ -1,32 +1,47 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from __future__ import absolute_import
 import logging
-import sys
 
-from amoniak.tasks import (
-    enqueue_all_amon_measures, enqueue_measures, enqueue_contracts,
-    enqueue_new_contracts,
-)
+import click
+
+from amoniak import tasks
 from amoniak.utils import setup_logging
+from amoniak import VERSION
+
+
+@click.group()
+@click.option('--log-level', default='info')
+def amoniak(log_level):
+    log_level = log_level.upper()
+    log_level = getattr(logging, log_level, 'INFO')
+    logging.basicConfig(level=log_level)
+    setup_logging()
+    logger = logging.getLogger('amon')
+    logger.info('Running amoniak version: %s' % VERSION)
+
+
+@amoniak.command()
+def enqueue_all_amon_measures():
+    logger = logging.getLogger('amon')
+    logger.info('Enqueuing all amon measures')
+    tasks.enqueue_all_amon_measures()
+
+
+@amoniak.command()
+def enqueue_measures():
+    logger = logging.getLogger('amon')
+    logger.info('Enqueuing measures')
+    tasks.enqueue_measures()
+
+
+@amoniak.command()
+def enqueue_contracts():
+    logger = logging.getLogger('amon')
+    logger.info('Enqueuing updated contracts')
+    tasks.enqueue_contracts()
+    logger.info('Enqueuing new contracts')
+    tasks.enqueue_new_contracts()
 
 
 if __name__ == '__main__':
-
-    logging.basicConfig(level=logging.INFO)
-    setup_logging()
-    logger = logging.getLogger('amon')
-
-    if sys.argv[1] == 'enqueue_all_amon_measures':
-        logger.info('Enqueuing all amon measures')
-        enqueue_all_amon_measures()
-
-    elif sys.argv[1] == "enqueue_measures":
-        logger.info('Enqueuing measures')
-        enqueue_measures()
-
-    elif sys.argv[1] == 'enqueue_contracts':
-        logger.info('Enqueuing updated contracts')
-        enqueue_contracts()
-        logger.info('Enqueuing new contracts')
-        enqueue_new_contracts()
+    amoniak(obj={})
