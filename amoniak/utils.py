@@ -1,3 +1,4 @@
+from ast import literal_eval
 import collections
 from functools import partial
 import logging
@@ -9,6 +10,7 @@ from empowering import Empowering
 import erppeek
 import pymongo
 import redis
+from rq import Queue
 from raven import Client
 from raven.handlers.logging import SentryHandler
 
@@ -75,6 +77,13 @@ def recursive_update(d, u):
     return d
 
 
+def env_eval(var):
+    try:
+        return literal_eval(var)
+    except Exception:
+        return var
+
+
 def config_from_environment(env_prefix, env_required=None, **kwargs):
     config = kwargs.copy()
     prefix = '%s_' % env_prefix.upper()
@@ -82,18 +91,18 @@ def config_from_environment(env_prefix, env_required=None, **kwargs):
         env_key = env_key.upper()
         if env_key.startswith(prefix):
             key = '_'.join(env_key.split('_')[1:]).lower()
-            config[key] = value
+            config[key] = env_eval(value)
     if env_required:
         for required in env_required:
             if required not in config:
                 logger.error('You must pass %s or define env var %s%s' %
                              (required, prefix, required.upper()))
+    logger.debug('Config for %s: %s' % (env_prefix, config))
     return config
 
 
 def setup_peek(**kwargs):
     peek_config = config_from_environment('PEEK', ['server'], **kwargs)
-    logger.info("Using PEEK CONFIG: %s" % peek_config)
     return erppeek.Client(**peek_config)
 
 
@@ -115,6 +124,12 @@ def setup_redis():
         __REDIS_POOL = redis.ConnectionPool()
     r = redis.Redis(connection_pool=__REDIS_POOL)
     return r
+
+
+def setup_queue(**kwargs):
+    config = config_from_environment('RQ', **kwargs)
+    config['connection'] = setup_redis()
+    return Queue(**config)
 
 
 def setup_logging(logfile=None):

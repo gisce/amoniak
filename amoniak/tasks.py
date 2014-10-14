@@ -5,7 +5,7 @@ import logging
 
 from .utils import (
     setup_peek, setup_mongodb, setup_empowering_api, setup_redis,
-    sorted_by_key, Popper
+    sorted_by_key, Popper, setup_queue
 )
 from .amon import AmonConverter, check_response
 import pymongo
@@ -152,7 +152,7 @@ def enqueue_contracts():
             push_modcontracts.delay(modcons, polissa.etag)
 
 
-@job('measures', connection=setup_redis(), timeout=3600)
+@job(setup_queue(name='measures'), connection=setup_redis(), timeout=3600)
 @sentry.capture_exceptions
 def push_amon_measures(measures_ids):
     """Pugem les mesures a l'Insight Engine
@@ -184,7 +184,7 @@ def push_amon_measures(measures_ids):
     mongo.connection.disconnect()
 
 
-@job('contracts', connection=setup_redis(), timeout=3600)
+@job(setup_queue(name='contracts'), connection=setup_redis(), timeout=3600)
 @sentry.capture_exceptions
 def push_modcontracts(modcons, etag):
     """modcons is a list of modcons to push
@@ -206,7 +206,7 @@ def push_modcontracts(modcons, etag):
     O.GiscedataPolissa.write(modcon['polissa_id'][0], {'etag': etag})
 
 
-@job('contracts', connection=setup_redis(), timeout=3600)
+@job(setup_queue(name='contracts'), connection=setup_redis(), timeout=3600)
 @sentry.capture_exceptions
 def push_contracts(contracts_id):
     """Pugem els contractes
