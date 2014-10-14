@@ -10,6 +10,7 @@ from empowering import Empowering
 import erppeek
 import pymongo
 import redis
+from rq import Queue
 from raven import Client
 from raven.handlers.logging import SentryHandler
 
@@ -123,6 +124,12 @@ def setup_redis():
         __REDIS_POOL = redis.ConnectionPool()
     r = redis.Redis(connection_pool=__REDIS_POOL)
     return r
+
+
+def setup_queue(**kwargs):
+    config = config_from_environment('RQ', **kwargs)
+    config['connection'] = setup_redis()
+    return Queue(**config)
 
 
 def setup_logging(logfile=None):
