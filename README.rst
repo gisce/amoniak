@@ -70,7 +70,7 @@ To execute measures's tasks
 
 .. code-block:: shell
 
-  $ rq-worker measures
+  $ rqworker measures
 
 
 ----------------------------------
