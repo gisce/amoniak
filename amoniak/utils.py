@@ -92,7 +92,7 @@ def config_from_environment(env_prefix, env_required=None, **kwargs):
 
 
 def setup_peek(**kwargs):
-    peek_config = config_from_environment('PEEK', **kwargs)
+    peek_config = config_from_environment('PEEK', ['server'], **kwargs)
     logger.info("Using PEEK CONFIG: %s" % peek_config)
     return erppeek.Client(**peek_config)
 
