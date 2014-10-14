@@ -96,12 +96,12 @@ def config_from_environment(env_prefix, env_required=None, **kwargs):
             if required not in config:
                 logger.error('You must pass %s or define env var %s%s' %
                              (required, prefix, required.upper()))
+    logger.debug('Config for %s: %s' % (env_prefix, config))
     return config
 
 
 def setup_peek(**kwargs):
     peek_config = config_from_environment('PEEK', ['server'], **kwargs)
-    logger.info("Using PEEK CONFIG: %s" % peek_config)
     return erppeek.Client(**peek_config)
 
 
