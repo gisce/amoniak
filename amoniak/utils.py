@@ -1,3 +1,4 @@
+from ast import literal_eval
 import collections
 from functools import partial
 import logging
@@ -75,6 +76,13 @@ def recursive_update(d, u):
     return d
 
 
+def env_eval(var):
+    try:
+        return literal_eval(var)
+    except Exception:
+        return var
+
+
 def config_from_environment(env_prefix, env_required=None, **kwargs):
     config = kwargs.copy()
     prefix = '%s_' % env_prefix.upper()
@@ -82,7 +90,7 @@ def config_from_environment(env_prefix, env_required=None, **kwargs):
         env_key = env_key.upper()
         if env_key.startswith(prefix):
             key = '_'.join(env_key.split('_')[1:]).lower()
-            config[key] = value
+            config[key] = env_eval(value)
     if env_required:
         for required in env_required:
             if required not in config:
