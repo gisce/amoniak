@@ -55,7 +55,7 @@ def enqueue_measures(bucket=500):
     pids = O.GiscedataPolissa.search([('etag', '!=', False)])
     # Comptadors que tingui aquesta pòlissa i que siguin de telegestió
     cids = O.GiscedataLecturesComptador.search([
-        ('tg', '=', 1),
+        ('tg_cnc_conn', '=', 1),
         ('polissa', 'in', pids)
     ], context={'active_test': False})
     for comptador in O.GiscedataLecturesComptador.read(cids, ['name']):
@@ -93,7 +93,7 @@ def enqueue_measures(bucket=500):
 
 def enqueue_new_contracts(bucket=500):
     search_params = [
-        ('tg', '=', 1),
+        ('tg_cnc_conn', '=', 1),
         ('polissa.etag', '=', False)
     ]
     em = setup_empowering_api()
