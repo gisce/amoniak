@@ -164,8 +164,8 @@ def enqueue_contracts():
                 polissa.name, w_date, last_updated))
             push_modcontracts.delay(modcons, polissa.etag)
         if is_new_contract:
-            logger.info("La polissa %s te etag pero ha estat borrada"
-                        "d'empowering, es torna a pujar" % polissa['id'])
+            logger.info("La polissa %s te etag pero ha estat borrada "
+                        "d'empowering, es torna a pujar" % polissa['name'])
             push_contracts.delay([polissa['id']])
 
 
