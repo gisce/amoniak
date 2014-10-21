@@ -230,8 +230,11 @@ def push_contracts(contracts_id):
                 response = em.contract(pol['name']).update(amon_data, etag)
             if check_response(response, amon_data):
                 upd.append(response)
-        etag = upd[-1]['_etag']
-        logger.info("Polissa id: %s -> etag %s" % (pol['name'], etag))
-        O.GiscedataPolissa.write(cid, {'etag': etag})
-
+        if upd:
+            etag = upd[-1]['_etag']
+            logger.info("Polissa id: %s -> etag %s" % (pol['name'], etag))
+            O.GiscedataPolissa.write(cid, {'etag': etag})
+        else:
+            logger.info("Polissa id: %s no etag found" % (pol['name']))
+            
 
