@@ -143,7 +143,7 @@ def enqueue_contracts():
             # A 404 is possible if we delete empowering contracts in insight engine
             # but keep etag in our database.
             # In this case we must force the re-upload as new contract
-            if '404' not in str(e):
+            if e.code != '404':
                 raise e
             is_new_contract = True
             last_updated = '0'
