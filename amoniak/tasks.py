@@ -3,6 +3,8 @@ from __future__ import absolute_import
 from datetime import datetime
 import logging
 
+import libsaas
+
 from .utils import (
     setup_peek, setup_mongodb, setup_empowering_api, setup_redis,
     sorted_by_key, Popper, setup_queue
@@ -133,10 +135,21 @@ def enqueue_contracts():
         return
     for polissa in O.GiscedataPolissa.read(polisses_ids, ['name', 'etag']):
         modcons = []
-        last_updated = em.contract(polissa['name']).get()['_updated']
-        last_updated = make_local_timestamp(last_updated)
+        is_new_contract = False
+        try:
+            last_updated = em.contract(polissa['name']).get()['_updated']
+            last_updated = make_local_timestamp(last_updated)
+        except libsaas.http.HTTPError as e:
+            # A 404 is possible if we delete empowering contracts in insight engine
+            # but keep etag in our database.
+            # In this case we must force the re-upload as new contract
+            if '404' not in e:
+                raise e
+            is_new_contract = True
+            last_updated = '0'
+
         w_date = O.GiscedataPolissa.perm_read(polissa['id'])[0]['write_date']
-        if w_date > last_updated:
+        if w_date > last_updated and not is_new_contract:
             # Ara mirem quines modificaciones contractuals hem de pujar
             polissa = O.GiscedataPolissa.browse(polissa['id'])
             for modcon in polissa.modcontractuals_ids:
@@ -150,6 +163,10 @@ def enqueue_contracts():
             logger.info('Polissa %s actualitzada a %s després de %s' % (
                 polissa.name, w_date, last_updated))
             push_modcontracts.delay(modcons, polissa.etag)
+        if is_new_contract:
+            logger.info("La polissa %s te etag pero ha estat borrada"
+                        "d'empowering, es torna a pujar" % polissa['id'])
+            push_contracts.delay([polissa['id']])
 
 
 @job(setup_queue(name='measures'), connection=setup_redis(), timeout=3600)
