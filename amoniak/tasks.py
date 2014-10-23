@@ -9,11 +9,11 @@ from .utils import (
     setup_peek, setup_mongodb, setup_empowering_api, setup_redis,
     sorted_by_key, Popper, setup_queue
 )
-from .amon import AmonConverter, check_response
+from .amon import AmonConverter, check_response, get_device_serial
 import pymongo
 from rq.decorators import job
 from raven import Client
-from empowering.utils import make_uuid, make_local_timestamp
+from empowering.utils import make_local_timestamp
 
 
 sentry = Client()
@@ -60,12 +60,9 @@ def enqueue_measures(bucket=500):
         ('tg_cnc_conn', '=', 1),
         ('polissa', 'in', pids)
     ], context={'active_test': False})
-    for comptador in O.GiscedataLecturesComptador.read(cids, ['name']):
+    fields_to_read = ['name', 'empowering_last_measure']
+    for comptador in O.GiscedataLecturesComptador.read(cids, fields_to_read):
         tg_name = O.GiscedataLecturesComptador.build_name_tg(comptador['id'])
-        deviceId = make_uuid('giscedata.lectures.comptador', tg_name)
-        logger.info("Buscant l'última lectura pel comptador: %s "
-                    "device_id %s" % (tg_name, deviceId))
-        res = em.amon_measures_measurements().get(where='"deviceId"=="%s"' % deviceId, sort='[("timestamp", -1)]')['_items']
         search_params = [
             ('name', '=', tg_name),
             ('type', '=', 'day'),
@@ -73,14 +70,13 @@ def enqueue_measures(bucket=500):
             ('valid', '=', 1),
             ('period', '=',  0)
         ]
-        if not res:
+        last_measure = comptador.get('empowering_last_measure')
+        if not last_measure:
             # Pujar totes
             logger.info("Les pugem totes")
         else:
-            res = res[0]
-            local_ts = make_local_timestamp(res['timestamp'])
-            logger.info(u"Última lectura trobada: %s" % local_ts)
-            search_params.append(('date_end', '>', local_ts))
+            logger.info(u"Última lectura trobada: %s" % last_measure)
+            search_params.append(('date_end', '>', last_measure))
         measures_ids = O.TgBilling.search(search_params, limit=0, order="date_end asc")
         logger.info("S'han trobat %s mesures per pujar" % len(measures_ids))
         popper = Popper(measures_ids)
@@ -187,14 +183,24 @@ def push_amon_measures(measures_ids):
                                   sort=[('date_end', pymongo.ASCENDING)])
     profiles = [x for x in mdbprofiles]
     logger.info("Enviant de %s (id:%s) a %s (id:%s)" % (
-        profiles[-1]['date_end'], profiles[-1]['id'],
         profiles[0]['date_end'], profiles[0]['id'],
+        profiles[-1]['date_end'], profiles[-1]['id']
     ))
     profiles_to_push = amon.profile_to_amon(profiles)
     stop = datetime.now()
     logger.info('Mesures transformades en %s' % (stop - start))
     start = datetime.now()
     measures = em.amon_measures().create(profiles_to_push)
+    # Save last timestamp
+    last_profile = profiles[-1]
+    serial = get_device_serial(last_profile['name'])
+    cids = O.GiscedataLecturesComptador.search([
+        ('name', '=', serial)
+    ], context={'active_test': False})
+    empowering_last_measure = '%s' % last_profile['date_end']
+    O.GiscedataLecturesComptador.write(cids, {
+        'empowering_last_measure': empowering_last_measure
+    })
     stop = datetime.now()
     logger.info('Mesures enviades en %s' % (stop - start))
     logger.info("%s measures creades" % len(measures))
