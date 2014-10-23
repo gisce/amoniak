@@ -183,8 +183,8 @@ def push_amon_measures(measures_ids):
                                   sort=[('date_end', pymongo.ASCENDING)])
     profiles = [x for x in mdbprofiles]
     logger.info("Enviant de %s (id:%s) a %s (id:%s)" % (
-        profiles[-1]['date_end'], profiles[-1]['id'],
         profiles[0]['date_end'], profiles[0]['id'],
+        profiles[-1]['date_end'], profiles[-1]['id']
     ))
     profiles_to_push = amon.profile_to_amon(profiles)
     stop = datetime.now()
