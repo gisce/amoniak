@@ -198,9 +198,9 @@ def push_amon_measures(measures_ids):
         ('name', '=', serial)
     ], context={'active_test': False})
     empowering_last_measure = '%s' % last_profile['date_end']
-    O.GiscedataLecturesComptador.write(cids, {
-        'empowering_last_measure': empowering_last_measure
-    })
+    O.GiscedataLecturesComptador.update_empowering_last_measure(
+        cids, empowering_last_measure
+    )
     stop = datetime.now()
     logger.info('Mesures enviades en %s' % (stop - start))
     logger.info("%s measures creades" % len(measures))
