@@ -114,12 +114,12 @@ class AmonConverter(object):
                 "readings": [
                     {
                         "type":  "electricityConsumption",
-                        "unit": "%sWh" % UNITS[profile.get('magn', 1)],
+                        "unit": "%sWh" % UNITS[profile.get('magn', 1000)],
                         "period": "CUMULATIVE",
                     },
                     {
                         "type": "electricityKiloVoltAmpHours",
-                        "unit": "%sVArh" % UNITS[profile.get('magn', 1)],
+                        "unit": "%sVArh" % UNITS[profile.get('magn', 1000)],
                         "period": "CUMULATIVE",
                     }
                 ],
@@ -296,4 +296,3 @@ def check_response(response, amon_data):
         )
         return False
     return True
-
