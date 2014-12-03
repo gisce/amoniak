@@ -33,7 +33,8 @@ class OT503Caching(OTCaching):
         ]
 
         result = self._result_collection.aggregate(aggregate)
-        if 'result' in result and 'total' in result['result'][0]:
+        if ('result' in result and len(result['result']) > 0 and
+            'total' in result['result'][0]):
             return result['result'][0]['total']
         else:
             return None
