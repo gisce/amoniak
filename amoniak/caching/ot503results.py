@@ -101,11 +101,13 @@ class OT503Caching(OTCaching):
         " to the month the dailys are considered valid, deleted otherwise
         """
 
-        if period:
-            # Discard other values
+        # If period specified discard all other possible values in values dict
+        if period and period in values:
             values = {period: values[period]}
+        elif period and period not in values:
+            values = {}
 
-        # Different algorism with super validate_contract
+        # Different algorism than super validate_contract:
         # here we will delete al periods not in valid_periods
         valid_periods = []
         for v_period, v_value in values.iteritems():
