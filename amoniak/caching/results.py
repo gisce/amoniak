@@ -38,6 +38,10 @@ class OTCaching(object):
         self._value_key = value_key
         self._ot_code = ot_code
 
+        # Hidden keys not returned by get_cached
+        self._hidden_keys = ['companyId', '_updated', '_etag',
+                             '_id', '_created', '_links']
+
     def pull_contract(self, contract, period=None):
         """ Will ask for results of online tool for the specidied
         " contract for ALL periods if is not specidied in period param.
@@ -171,6 +175,14 @@ class OTCaching(object):
             search_params.update({'contract': contract})
 
         self._log_error_collection.remove(search_params)
+
+    def get_cached(self, contract, period):
+        cached = self._get(contract, period)
+        for elem in cached:
+            for hidden_key in self._hidden_keys:
+                if hidden_key in elem:
+                    elem.pop(hidden_key)
+        return {"_items": cached}
 
     def _get(self, contract, period=None):
         query = {'contractId': contract}
