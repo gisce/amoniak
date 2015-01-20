@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
+
 from results import *
 
 
@@ -147,3 +150,29 @@ class OT503Caching(OTCaching):
             # Period specified and is valid -> OK nothing to do
             pass
 
+    def get_cached(self, contract, period):
+        end_period_date = datetime.strptime(period, '%Y%m')
+
+        end_period_date += relativedelta(months=1)
+        end_period_date = datetime(year=end_period_date.year,
+                                   month=end_period_date.month,
+                                   day=1)
+        end_period_date -= relativedelta(days=1)
+        end_period = int(end_period_date.strftime('%Y%m%d'))
+
+        # Set the start period at the begining of the month
+        start_period_date = datetime(year=end_period_date.year,
+                                     month=end_period_date.month,
+                                     day=1)
+        start_period = int(start_period_date.strftime('%Y%m%d'))
+
+        query = {'contractId': contract,
+                 'time': {'$gt': start_period,
+                          '$lte': end_period}}
+        res = self._result_collection.find(query).sort('time', 1)
+        cached = [x for x in res]
+        for elem in cached:
+            for hidden_key in self._hidden_keys:
+                if hidden_key in elem:
+                    elem.pop(hidden_key)
+        return {"_items": cached}
