@@ -167,7 +167,7 @@ class OT503Caching(OTCaching):
         start_period = int(start_period_date.strftime('%Y%m%d'))
 
         query = {'contractId': contract,
-                 'time': {'$gt': start_period,
+                 'time': {'$gte': start_period,
                           '$lte': end_period}}
         res = self._result_collection.find(query).sort('time', 1)
         cached = [x for x in res]
