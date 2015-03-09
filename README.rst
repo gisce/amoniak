@@ -90,6 +90,8 @@ To work with **Empowering services** you must define the following environment v
 * EMPOWERING_COMPANY_ID
 * EMPOWERING_KEY_FILE
 * EMPOWERING_CERT_FILE (This can be the same as EMPOWERING_KEY_FILE)
+* EMPOWERING_USERNAME
+* EMPOWERING_PASSWORD
 
 If you want to work with empowering debug server you have to define EMPOWERING_DEBUG
 
