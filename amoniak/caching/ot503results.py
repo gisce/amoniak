@@ -9,7 +9,7 @@ class OT503Caching(OTCaching):
     def __init__(self, empowering_service, mongo_connection):
         super(OT503Caching, self).__init__(empowering_service, 'ot503_results',
                             mongo_connection, 'ot503', 'empowering_error',
-                            'time', 'consumption')
+                            'day', 'consumption')
 
     def _get_period_sum(self, contract, period):
         period_start = int(period + '01')
@@ -19,7 +19,7 @@ class OT503Caching(OTCaching):
             {
                 "$match": {
                     "contractId": contract,
-                    "time": {
+                    "day": {
                         "$gte": period_start,
                         "$lte": period_end
                     }
@@ -50,7 +50,7 @@ class OT503Caching(OTCaching):
         period_end = int(period + '31')
         remove = {
             "contractId": contract,
-            "time": {
+            "day": {
                 "$gte": period_start,
                 "$lte": period_end
             }
@@ -67,7 +67,7 @@ class OT503Caching(OTCaching):
             period_end = int(period + '31')
             query = {
                 "contractId": contract,
-                "time": {
+                "day": {
                     "$gte": period_start,
                     "$lte": period_end
                 }
@@ -167,9 +167,9 @@ class OT503Caching(OTCaching):
         start_period = int(start_period_date.strftime('%Y%m%d'))
 
         query = {'contractId': contract,
-                 'time': {'$gte': start_period,
+                 'day': {'$gte': start_period,
                           '$lte': end_period}}
-        res = self._result_collection.find(query).sort('time', 1)
+        res = self._result_collection.find(query).sort('day', 1)
         cached = [x for x in res]
         for elem in cached:
             for hidden_key in self._hidden_keys:
