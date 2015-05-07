@@ -4,7 +4,7 @@ INSTALL_REQUIRES = [
     'empowering',
     'erppeek',
     'pymongo',
-    'rq<0.4',
+    'rq',
     'modeldict',
     'times',
     'raven',
