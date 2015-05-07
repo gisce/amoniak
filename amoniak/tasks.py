@@ -2,6 +2,7 @@
 from __future__ import absolute_import
 from datetime import datetime
 import logging
+import urllib2
 
 import libsaas
 
@@ -135,7 +136,7 @@ def enqueue_contracts():
         try:
             last_updated = em.contract(polissa['name']).get()['_updated']
             last_updated = make_local_timestamp(last_updated)
-        except libsaas.http.HTTPError as e:
+        except (libsaas.http.HTTPError, urllib2.HTTPError) as e:
             # A 404 is possible if we delete empowering contracts in insight engine
             # but keep etag in our database.
             # In this case we must force the re-upload as new contract
