@@ -16,10 +16,6 @@ UNITS = {1: '', 1000: 'k'}
 logger = logging.getLogger('amon')
 
 
-def get_device_serial(device_id):
-    return device_id[5:].lstrip('0')
-
-
 def get_street_name(cups):
     street = []
     street_name = u''
@@ -46,6 +42,10 @@ class AmonConverter(object):
         self.O = connection
 
     def get_cups_from_device(self, device_id):
+        def get_device_serial(self,device_id):
+            field_to_read = 'name'
+            return O.GiscedataLecturesComptador([device_id],[field_to_read])[0][field_to_read]
+
         O = self.O
         # Remove brand prefix and right zeros
         serial = get_device_serial(device_id)
@@ -103,39 +103,51 @@ class AmonConverter(object):
         if not hasattr(profiles, '__iter__'):
             profiles = [profiles]
         for profile in profiles:
-            mp_uuid = self.get_cups_from_device(profile['name'])
+            mp_uuid = self.get_cups_from_device(profile['comptador'])
             if not mp_uuid:
-                logger.info("No mp_uuid for &s" % profile['name'])
+                logger.info("No mp_uuid for &s" % profile['comptador'])
                 continue
-            device_uuid = make_uuid('giscedata.lectures.comptador', profile['name'])
-            res.append({
-                "deviceId": device_uuid,
-                "meteringPointId": mp_uuid,
-                "readings": [
-                    {
-                        "type":  "electricityConsumption",
-                        "unit": "%sWh" % UNITS[profile.get('magn', 1000)],
-                        "period": "CUMULATIVE",
-                    },
-                    {
-                        "type": "electricityKiloVoltAmpHours",
-                        "unit": "%sVArh" % UNITS[profile.get('magn', 1000)],
-                        "period": "CUMULATIVE",
-                    }
-                ],
-                "measurements": [
-                    {
-                        "type": "electricityConsumption",
-                        "timestamp": make_utc_timestamp(profile['date_end']),
-                        "value": float(profile['ai'])
-                    },
-                    {
-                        "type": "electricityKiloVoltAmpHours",
-                        "timestamp": make_utc_timestamp(profile['date_end']),
-                        "value": float(profile['r1'])
-                    }
-                ]
-            })
+            device_uuid = make_uuid('giscedata.lectures.comptador', profile['comptador'])
+
+            if   (profile['tipus'] == 'A'):
+                res.append({
+                    "deviceId": device_uuid,
+                    "meteringPointId": mp_uuid,
+                    "readings": [
+                        {
+                            "type":  "electricityConsumption",
+                            "unit": "%sWh" % UNITS[profile.get('magn', 1000)],
+                            "period": "CUMULATIVE",
+                        }
+                    ],
+                    "measurements": [
+                        {
+                            "type": "electricityConsumption",
+                            "timestamp": make_utc_timestamp(profile['date_end']),
+                            "value": float(profile['lectura'])
+                        }
+                    ]
+                })
+
+            elif (profile['tipus'] == 'R'):
+                res.append({
+                    "deviceId": device_uuid,
+                    "meteringPointId": mp_uuid,
+                    "readings": [
+                        {
+                            "type": "electricityKiloVoltAmpHours",
+                            "unit": "%sVArh" % UNITS[profile.get('magn', 1000)],
+                            "period": "CUMULATIVE",
+                        }
+                    ],
+                    "measurements": [
+                        {
+                            "type": "electricityKiloVoltAmpHours",
+                            "timestamp": make_utc_timestamp(profile['date_end']),
+                            "value": float(profile['lectura'])
+                        }
+                    ]
+                })
         return res
 
 
@@ -173,39 +185,174 @@ class AmonConverter(object):
             }))
         return res
 
-    def contract_to_amon(self, contract_ids, context=None):
-        """Converts contracts to AMON.
+
+    def building_to_amon(self,building_id):
+        """ Convert building to AMON
+
+         {
+              "buildingConstructionYear": 2014,
+              "dwellingArea": 196,
+              "buildingType": "Apartment",
+              "dwellingPositionInBuilding": "first_floor",
+              "dwellingOrientation": "SE",
+              "buildingWindowsType": "double_panel",
+              "buildingWindowsFrame": "PVC",
+              "buildingHeatingSource": "district_heating",
+              "buildingHeatingSourceDhw": "gasoil",
+              "buildingSolarSystem": "not_installed"
+         }
+        """
+        if not building_id:
+            return None
+
+        O = self.O
+        building_obj = O.EmpoweringCupsBuilding
+
+        fields_to_read =  ['buildingConstructionYear', 'dwellingArea', 'buildingType', 'dwellingPositionInBuilding',
+                           'dwellingOrientation', 'buildingWindowsType', 'buildingWindowsFrame',
+                           'buildingHeatingSource', 'buildingHeatingSourceDhw', 'buildingSolarSystem']
+        building = building_obj.read(building_id)
+
+        return remove_none({ field: building[field] for field in fields_to_read})
+
+    def eprofile_to_amon(self,profile_id):
+        """ Convert profile to AMON
 
         {
-          "payerId":"payerID-123",
-          "ownerId":"ownerID-123",
-          "signerId":"signerID-123",
-          "power":123,
-          "dateStart":"2013-10-11T16:37:05Z",
-          "dateEnd":null,
-          "contractId":"contractID-123",
-          "customer":{
-            "customerId":"payerID-123",
-            "address":{
-              "city":"city-123",
-              "cityCode":"cityCode-123",
-              "countryCode":"ES",
-              "country":"Spain",
-              "street":"street-123",
-              "postalCode":"postalCode-123"
+          "totalPersonsNumber": 3,
+          "minorsPersonsNumber": 0,
+          "workingAgePersonsNumber": 2,
+          "retiredAgePersonsNumber": 1,
+          "malePersonsNumber": 2,
+          "femalePersonsNumber": 1,
+          "educationLevel": {
+            "edu_prim": 0,
+            "edu_sec": 1,
+            "edu_uni": 1,
+            "edu_noStudies": 1
+        }
+        """
+        if not profile_id:
+            return None
+
+        O = self.O
+        profile_obj = O.EmpoweringModcontractualProfile
+        fields_to_read = ['totalPersonsNumber', 'minorPersonsNumber', 'workingAgePersonsNumber', 'retiredAgePersonsNumber',
+                          'malePersonsNumber', 'femalePersonsNumber', 'eduLevel_prim', 'eduLevel_sec', 'eduLevel_uni',
+                          'eduLevel_noStudies']
+        profile = profile_obj.read(profile_id)
+
+        return remove_none({
+            "totalPersonsNumber": profile['totalPersonsNumber'],
+            "minorsPersonsNumber": profile['minorPersonsNumber'],
+            "workingAgePersonsNumber": profile['workingAgePersonsNumber'],
+            "retiredAgePersonsNumber": profile['retiredAgePersonsNumber'],
+            "malePersonsNumber": profile['malePersonsNumber'],
+            "femalePersonsNumber": profile['femalePersonsNumber'],
+            "educationLevel": {
+                "edu_prim": profile['eduLevel_prim'],
+                "edu_sec": profile['eduLevel_sec'],
+                "edu_uni": profile['eduLevel_uni'],
+                "edu_noStudies": profile['eduLevel_noStudies']
+            }
+        })
+
+
+    def service_to_amon(self,service_id):
+        """ Convert service to AMON
+
+         {
+            "OT701": "p1;P2;px"
+         }
+        """
+        if not service_id:
+            return None
+
+        O = self.O
+        service_obj = O.EmpoweringModcontractualService
+        fields_to_read = ['OT101', 'OT103', 'OT105', 'OT106', 'OT109', 'OT201', 'OT204', 'OT401', 'OT502', 'OT503', 'OT603',
+                         'OT603g', 'OT701', 'OT703']
+        service = service_obj.read(service_id)
+
+        return remove_none({ field: service[field] for field in fields_to_read})
+
+
+
+    def contract_to_amon(self, contract_ids, context=None):
+        """Converts contracts to AMON.
+        {
+          "contractId": "contractId-123",
+          "ownerId": "ownerId-123",
+          "payerId": "payerId-123",
+          "signerId": "signerId-123",
+          "power": 123,
+          "dateStart": "2013-10-11T16:37:05Z",
+          "dateEnd": null,
+          "weatherStationId": "weatherStatioId-123",
+          "version": 1,
+          "activityCode": "activityCode",
+          "tariffId": "tariffID-123",
+          "meteringPointId": "c1759810-90f3-012e-0404-34159e211070",
+          "experimentalGroupUser": True,
+          "experimentalGroupUserTest": True,
+          "activeUser": True,
+          "activeUserDate": "2014-10-11T16:37:05Z",
+          "customer": {
+            "customerId": "customerId-123",
+            "address": {
+              "buildingId": "building-123",
+              "city": "city-123",
+              "cityCode": "cityCode-123",
+              "countryCode": "ES",
+              "country": "Spain",
+              "street": "street-123",
+              "postalCode": "postalCode-123",
+              "province": "Barcelona",
+              "provinceCode": "provinceCode-123",
+              "parcelNumber": "parcelNumber-123"
+            },
+            "buildingData": {
+              "buildingConstructionYear": 2014,
+              "dwellingArea": 196,
+              "buildingType": "Apartment",
+              "dwellingPositionInBuilding": "first_floor",
+              "dwellingOrientation": "SE",
+              "buildingWindowsType": "double_panel",
+              "buildingWindowsFrame": "PVC",
+              "buildingHeatingSource": "district_heating",
+              "buildingHeatingSourceDhw": "gasoil",
+              "buildingSolarSystem": "not_installed"
+            },
+            "profile": {
+              "totalPersonsNumber": 3,
+              "minorsPersonsNumber": 0,
+              "workingAgePersonsNumber": 2,
+              "retiredAgePersonsNumber": 1,
+              "malePersonsNumber": 2,
+              "femalePersonsNumber": 1,
+              "educationLevel": {
+                "edu_prim": 0,
+                "edu_sec": 1,
+                "edu_uni": 1,
+                "edu_noStudies": 1
+              }
+            },
+            "customisedGroupingCriteria": {
+              "criteria_1": "CLASS 1",
+              "criteria_2": "XXXXXXX",
+              "criteria_3": "YYYYYYY"
+            },
+            "customisedServiceParameters": {
+              "OT701": "p1;P2;px"
             }
           },
-          "meteringPointId":"c1759810-90f3-012e-0404-34159e211070",
-          "devices":[
+          "devices": [
             {
-              "dateStart":"2013-10-11T16:37:05Z",
-              "dateEnd":null,
-              "deviceId":"c1810810-0381-012d-25a8-0017f2cd3574"
+              "dateStart": "2013-10-11T16:37:05Z",
+              "dateEnd": null,
+              "deviceId": "c1810810-0381-012d-25a8-0017f2cd3574"
             }
-          ],
-          "version":1,
-          "activityCode":"activityCode",
-          "tariffId":"tariffID-123",
+          ]
         }
         """
         O = self.O
@@ -214,19 +361,35 @@ class AmonConverter(object):
         res = []
         pol = O.GiscedataPolissa
         modcon_obj = O.GiscedataPolissaModcontractual
+
+        building_obj = O.EmpoweringCupsBuilding
+        profile_obj = O.EmpoweringModcontractualProfile
+        service_obj = O.EmpoweringModcontractualService
+
         if not hasattr(contract_ids, '__iter__'):
             contract_ids = [contract_ids]
         fields_to_read = ['modcontractual_activa', 'name', 'cups', 'comptadors', 'state']
         for polissa in pol.read(contract_ids, fields_to_read):
             if polissa['state'] in ('esborrany', 'validar'):
                 continue
+
+            modcon_id = None
             if 'modcon_id' in context:
-                modcon = modcon_obj.read(context['modcon_id'])
+                modcon_id = context['modcon_id']
             elif polissa['modcontractual_activa']:
-                modcon = modcon_obj.read(polissa['modcontractual_activa'][0])
+                modcon_id = polissa['modcontractual_activa'][0]
             else:
                 logger.error("Problema amb la polissa %s" % polissa['name'])
                 continue
+            modcon = modcon_obj.read(modcon_id)
+
+            def  get_first(x):
+                return x[0] if x else None
+
+            building_id = get_first(building_obj.search([('cups_id', '=', modcon['cups'][0])]))
+            profile_id = get_first(profile_obj.search([('modcontractual_id', '=', modcon_id)]))
+            service_id = get_first(service_obj.search([('modcontractual_id', '=', modcon_id)]))
+
             contract = {
                 'ownerId': make_uuid('res.partner', modcon['titular'][0]),
                 'payerId': make_uuid('res.partner', modcon['pagador'][0]),
@@ -239,6 +402,9 @@ class AmonConverter(object):
                 'activityCode': modcon['cnae'] and modcon['cnae'][1] or None,
                 'customer': {
                     'customerId': make_uuid('res.partner', modcon['titular'][0]),
+                    'buildingData': self.building_to_amon(building_id),
+                    'profile': self.eprofile_to_amon(profile_id),
+                    'customisedServiceParameters': self.service_to_amon(service_id)
                 },
                 'devices': self.device_to_amon(polissa['comptadors'])
             }
@@ -255,8 +421,9 @@ class AmonConverter(object):
             devices.append({
                 'dateStart': make_utc_timestamp(comptador['data_alta']),
                 'dateEnd': make_utc_timestamp(comptador['data_baixa']),
-                'deviceId': make_uuid('giscedata.lectures.comptador',
-                                      compt_obj.build_name_tg(comptador['id']))
+#                'deviceId': make_uuid('giscedata.lectures.comptador',
+#                                      compt_obj.build_name_tg(comptador['id']))
+                'deviceId': make_uuid('giscedata.lectures.comptador', comptador['id'])
             })
         return devices
 
@@ -274,7 +441,7 @@ class AmonConverter(object):
                     'city': cups['id_municipi'][1],
                     'cityCode': ine,
                     'countryCode': 'ES',
-                    'street': get_street_name(cups),
+                    #'street': get_street_name(cups),
                     'postalCode': cups['dp']
                 }
             }
