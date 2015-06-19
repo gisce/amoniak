@@ -56,14 +56,14 @@ def enqueue_measures(bucket=500):
     # TODO: Que fem amb les de baixa? les agafem igualment? només les que
     # TODO: faci menys de X que estan donades de baixa?
     pids = O.GiscedataPolissa.search([('etag', '!=', False)])
-    # Comptadors que tingui aquesta pòlissa i que siguin de telegestió
+
     cids = O.GiscedataLecturesComptador.search([
         ('polissa', 'in', pids)
     ], context={'active_test': False})
     fields_to_read = ['name', 'empowering_last_measure']
     for comptador in O.GiscedataLecturesComptador.read(cids, fields_to_read):
         search_params = [
-            ('comptador', '=', comptador.id)
+            ('comptador', '=', comptador['id'])
         ]
         last_measure = comptador.get('empowering_last_measure')
         if not last_measure:
@@ -96,8 +96,8 @@ def enqueue_measures(bucket=500):
             'Estimada',
             'Gestió ATR'
         ]
-        origen_comer_ids = O.GiscedataLecturesOrigenComer.search([('name','in',origen_comer_to_search)])
-        search_params.append(('origen_comer_id', 'in', origen_comer_ids))
+        #origen_comer_ids = O.GiscedataLecturesOrigenComer.search([('name','in',origen_comer_to_search)])
+        #search_params.append(('origen_comer_id', 'in', origen_comer_ids))
 
         measures_ids = O.GiscedataLecturesLecturaPool.search(search_params, limit=0, order="name asc")
         logger.info("S'han trobat %s mesures per pujar" % len(measures_ids))
@@ -105,9 +105,9 @@ def enqueue_measures(bucket=500):
         pops = popper.pop(bucket)
         while pops:
             j = push_amon_measures.delay(pops)
-            logger.info("Job id:%s | %s/%s/%s" % (
-                j.id, comptador.name, len(pops), len(popper.items))
-            )
+            #logger.info("Job id:%s | %s/%s/%s" % (
+            #     j.id, comptador.get('name'), len(pops), len(popper.items))
+            #)
             pops = popper.pop(bucket)
 
 
@@ -189,26 +189,6 @@ def enqueue_contracts():
                 profile_id = O.EmpoweringModcontractualProfile.search([
                             ('modcontractual_id', '=', modcon_id)])
 
-                if profile_id:
-                    w_date = O.EmpoweringModcontractualProfile.perm_read(profile_id)[0]['write_date']
-                    if w_date > last_updated:
-                        logger.info('La modcontractual %d a actualitzar write_'
-                                    'date: %s last_update: %s' % (
-                            modcon_id, w_date, last_updated))
-                        modcons_to_update.append(modcon_id)
-                        continue
-
-                service_id = O.EmpoweringModcontractualService.search([
-                            ('modcontractual_id', '=', modcon_id)])
-
-                if service_id:
-                    w_date = O.EmpoweringModcontractualService.perm_read(service_id)[0]['write_date']
-                    if w_date > last_updated:
-                        logger.info('La modcontractual %d a actualitzar write_'
-                                    'date: %s last_update: %s' % (
-                            modcon_id, w_date, last_updated))
-                        modcons_to_update.append(modcon_id)
-                        continue
 
         modcons_to_update = list(set(modcons_to_update))
 
@@ -237,8 +217,8 @@ def push_amon_measures(measures_ids):
 
     profiles = O.GiscedataLecturesLecturaPool.read(measures_ids,fields_to_read)
     # NOTE: Tricky end_date rename
-    for idx,item in profiles.items():
-        profiles[idx]['date_end']=profiles[idx]('name')
+    for idx,item in enumerate(profiles):
+        profiles[idx]['date_end']=profiles[idx]['name']
 
     logger.info("Enviant de %s (id:%s) a %s (id:%s)" % (
         profiles[0]['date_end'], profiles[0]['id'],

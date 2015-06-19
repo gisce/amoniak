@@ -7,7 +7,7 @@ import logging
 
 from .cache import CUPS_CACHE, CUPS_UUIDS
 from .utils import recursive_update
-from empowering.utils import remove_none, make_uuid, make_utc_timestamp
+from empowering.utils import null_to_none, remove_none, make_uuid, make_utc_timestamp
 
 
 UNITS = {1: '', 1000: 'k'}
@@ -42,9 +42,9 @@ class AmonConverter(object):
         self.O = connection
 
     def get_cups_from_device(self, device_id):
-        def get_device_serial(self,device_id):
+        def get_device_serial(device_id):
             field_to_read = 'name'
-            return O.GiscedataLecturesComptador([device_id],[field_to_read])[0][field_to_read]
+            return O.GiscedataLecturesComptador.read([device_id],[field_to_read])[0][field_to_read]
 
         O = self.O
         # Remove brand prefix and right zeros
@@ -103,11 +103,11 @@ class AmonConverter(object):
         if not hasattr(profiles, '__iter__'):
             profiles = [profiles]
         for profile in profiles:
-            mp_uuid = self.get_cups_from_device(profile['comptador'])
+            mp_uuid = self.get_cups_from_device(profile['comptador'][0])
             if not mp_uuid:
-                logger.info("No mp_uuid for &s" % profile['comptador'])
+                logger.info("No mp_uuid for &s" % profile['comptador'][0])
                 continue
-            device_uuid = make_uuid('giscedata.lectures.comptador', profile['comptador'])
+            device_uuid = make_uuid('giscedata.lectures.comptador', profile['comptador'][0])
 
             if   (profile['tipus'] == 'A'):
                 res.append({
@@ -213,7 +213,7 @@ class AmonConverter(object):
                            'buildingHeatingSource', 'buildingHeatingSourceDhw', 'buildingSolarSystem']
         building = building_obj.read(building_id)
 
-        return remove_none({ field: building[field] for field in fields_to_read})
+        return remove_none(null_to_none({ field: building[field] for field in fields_to_read}))
 
     def eprofile_to_amon(self,profile_id):
         """ Convert profile to AMON
@@ -242,7 +242,7 @@ class AmonConverter(object):
                           'eduLevel_noStudies']
         profile = profile_obj.read(profile_id)
 
-        return remove_none({
+        return remove_none(null_to_none({
             "totalPersonsNumber": profile['totalPersonsNumber'],
             "minorsPersonsNumber": profile['minorPersonsNumber'],
             "workingAgePersonsNumber": profile['workingAgePersonsNumber'],
@@ -255,7 +255,7 @@ class AmonConverter(object):
                 "edu_uni": profile['eduLevel_uni'],
                 "edu_noStudies": profile['eduLevel_noStudies']
             }
-        })
+        }))
 
 
     def service_to_amon(self,service_id):
@@ -274,7 +274,7 @@ class AmonConverter(object):
                          'OT603g', 'OT701', 'OT703']
         service = service_obj.read(service_id)
 
-        return remove_none({ field: service[field] for field in fields_to_read})
+        return remove_none(null_to_none({ field: service[field] for field in fields_to_read}))
 
 
 
