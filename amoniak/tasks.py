@@ -118,8 +118,7 @@ def enqueue_new_contracts(bucket=500):
     em = setup_empowering_api()
     items = em.contracts().get(sort="[('_updated', -1)]")['_items']
     if items:
-        # from_date = make_local_timestamp(items[0]['_updated'])
-        from_date = '2015-01-01 00:00:00'
+        from_date = make_local_timestamp(items[0]['_updated'])
         search_params.append(('polissa.create_date', '>', from_date))
     O = setup_peek()
     cids = O.GiscedataLecturesComptador.search(search_params,
