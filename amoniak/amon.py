@@ -16,6 +16,10 @@ UNITS = {1: '', 1000: 'k'}
 logger = logging.getLogger('amon')
 
 
+def get_device_serial(device_id):
+    return device_id[5:].lstrip('0')
+
+
 def get_street_name(cups):
     street = []
     street_name = u''
