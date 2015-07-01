@@ -243,44 +243,44 @@ def push_amon_measures(tg_enabled, measures_ids):
     if tg_enabled:
         mongo = setup_mongodb()
         collection = mongo['tg_billing']
-        mdbprofiles = collection.find({'id': {'$in': measures_ids}},
+        mdbmeasures = collection.find({'id': {'$in': measures_ids}},
                                       {'name': 1, 'id': 1, '_id': 0,
                                       'ai': 1, 'r1': 1, 'date_end': 1},
                                       sort=[('date_end', pymongo.ASCENDING)])
-        profiles = [x for x in mdbprofiles]
+        measures = [x for x in mdbmeasures]
     else:
-        fields_to_read = ['comptador','name','tipus','lectura']
+        fields_to_read = ['comptador', 'name', 'tipus', 'lectura']
 
-        profiles = O.GiscedataLecturesLecturaPool.read(measures_ids,fields_to_read)
+        measures = O.GiscedataLecturesLecturaPool.read(measures_ids,fields_to_read)
         # NOTE: Tricky end_date rename
-        for idx,item in enumerate(profiles):
-            profiles[idx]['date_end']=profiles[idx]['name']
+        for idx, item in enumerate(measures):
+            measures[idx]['date_end']=measures[idx]['name']
 
     logger.info("Enviant de %s (id:%s) a %s (id:%s)" % (
-        profiles[0]['date_end'], profiles[0]['id'],
-        profiles[-1]['date_end'], profiles[-1]['id']
+        measures[0]['date_end'], measures[0]['id'],
+        measures[-1]['date_end'], measures[-1]['id']
     ))
-    profiles_to_push = amon.profile_to_amon(profiles)
+    measures_to_push = amon.measure_to_amon(measures)
     stop = datetime.now()
     logger.info('Mesures transformades en %s' % (stop - start))
     start = datetime.now()
-    measures = em.amon_measures().create(profiles_to_push)
+    measures = em.amon_measures().create(measures_to_push)
     # Save last timestamp
-    last_profile = profiles[-1]
+    last_measure = measures[-1]
 
     if tg_enabled:
         from .amon import get_device_serial
 
-        serial = get_device_serial(last_profile['name'])
+        serial = get_device_serial(last_measure['name'])
         cids = O.GiscedataLecturesComptador.search([('name', '=', serial)], context={'active_test': False})
 
-        empowering_last_measure = '%s' % last_profile['date_end']
+        empowering_last_measure = '%s' % last_measure['date_end']
         O.GiscedataLecturesComptador.update_empowering_last_measure(cids, empowering_last_measure)
         mongo.connection.disconnect()
     else:
-        empowering_last_measure = '%s' % last_profile['date_end']
+        empowering_last_measure = '%s' % last_measure['date_end']
         O.GiscedataLecturesComptador.update_empowering_last_measure(
-            [last_profile['comptador'][0]], empowering_last_measure
+            [last_measure['comptador'][0]], empowering_last_measure
         )
     stop = datetime.now()
     logger.info('Mesures enviades en %s' % (stop - start))

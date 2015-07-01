@@ -71,7 +71,6 @@ class AmonConverter(object):
 
     def profile_to_amon(self, profiles):
         """Return a list of AMON readinds.
-
         {
             "utilityId": "Utility Id",
             "deviceId": "c1810810-0381-012d-25a8-0017f2cd3574",
@@ -107,53 +106,125 @@ class AmonConverter(object):
         if not hasattr(profiles, '__iter__'):
             profiles = [profiles]
         for profile in profiles:
-            mp_uuid = self.get_cups_from_device(profile['comptador'][0])
+            mp_uuid = self.get_cups_from_device(profile['name'])
             if not mp_uuid:
-                logger.info("No mp_uuid for &s" % profile['comptador'][0])
+                logger.info("No mp_uuid for &s" % profile['name'])
                 continue
-            device_uuid = make_uuid('giscedata.lectures.comptador', profile['comptador'][0])
+            device_uuid = make_uuid('giscedata.lectures.comptador', profile['name'])
+            res.append({
+                "deviceId": device_uuid,
+                "meteringPointId": mp_uuid,
+                "readings": [
+                    {
+                        "type":  "electricityConsumption",
+                        "unit": "%sWh" % UNITS[profile.get('magn', 1000)],
+                        "period": "CUMULATIVE",
+                    },
+                    {
+                        "type": "electricityKiloVoltAmpHours",
+                        "unit": "%sVArh" % UNITS[profile.get('magn', 1000)],
+                        "period": "CUMULATIVE",
+                    }
+                ],
+                "measurements": [
+                    {
+                        "type": "electricityConsumption",
+                        "timestamp": make_utc_timestamp(profile['date_end']),
+                        "value": float(profile['ai'])
+                    },
+                    {
+                        "type": "electricityKiloVoltAmpHours",
+                        "timestamp": make_utc_timestamp(profile['date_end']),
+                        "value": float(profile['r1'])
+                    }
+                ]
+            })
+        return res
 
-            if   (profile['tipus'] == 'A'):
+    def measure_to_amon(self, measures):
+        """Return a list of AMON readinds.
+
+        {
+            "utilityId": "Utility Id",
+            "deviceId": "c1810810-0381-012d-25a8-0017f2cd3574",
+            "meteringPointId": "c1759810-90f3-012e-0404-34159e211070",
+            "readings": [
+                {
+                    "type_": "electricityConsumption",
+                    "unit": "kWh",
+                    "period": "INSTANT",
+                },
+                {
+                    "type_": "electricityKiloVoltAmpHours",
+                    "unit": "kVArh",
+                    "period": "INSTANT",
+                }
+            ],
+            "measurements": [
+                {
+                    "type_": "electricityConsumption",
+                    "timestamp": "2010-07-02T11:39:09Z", # UTC
+                    "value": 7
+                },
+                {
+                    "type_": "electricityKiloVoltAmpHours",
+                    "timestamp": "2010-07-02T11:44:09Z", # UTC
+                    "value": 6
+                }
+            ]
+        }
+        """
+        O = self.O
+        res = []
+        if not hasattr(measures, '__iter__'):
+            measures = [measures]
+        for measure in measures:
+            mp_uuid = self.get_cups_from_device(measure['comptador'][0])
+            if not mp_uuid:
+                logger.info("No mp_uuid for &s" % measure['comptador'][0])
+                continue
+            device_uuid = make_uuid('giscedata.lectures.comptador', measure['comptador'][0])
+
+            if measure['tipus'] == 'A':
                 res.append({
                     "deviceId": device_uuid,
                     "meteringPointId": mp_uuid,
                     "readings": [
                         {
                             "type":  "electricityConsumption",
-                            "unit": "%sWh" % UNITS[profile.get('magn', 1000)],
+                            "unit": "%sWh" % UNITS[measure.get('magn', 1000)],
                             "period": "CUMULATIVE",
                         }
                     ],
                     "measurements": [
                         {
                             "type": "electricityConsumption",
-                            "timestamp": make_utc_timestamp(profile['date_end']),
-                            "value": float(profile['lectura'])
+                            "timestamp": make_utc_timestamp(measure['date_end']),
+                            "value": float(measure['lectura'])
                         }
                     ]
                 })
 
-            elif (profile['tipus'] == 'R'):
+            elif measure['tipus'] == 'R':
                 res.append({
                     "deviceId": device_uuid,
                     "meteringPointId": mp_uuid,
                     "readings": [
                         {
                             "type": "electricityKiloVoltAmpHours",
-                            "unit": "%sVArh" % UNITS[profile.get('magn', 1000)],
+                            "unit": "%sVArh" % UNITS[measure.get('magn', 1000)],
                             "period": "CUMULATIVE",
                         }
                     ],
                     "measurements": [
                         {
                             "type": "electricityKiloVoltAmpHours",
-                            "timestamp": make_utc_timestamp(profile['date_end']),
-                            "value": float(profile['lectura'])
+                            "timestamp": make_utc_timestamp(measure['date_end']),
+                            "value": float(measure['lectura'])
                         }
                     ]
                 })
         return res
-
 
     def device_to_amon(self, device_ids):
         """Convert a device to AMON.
