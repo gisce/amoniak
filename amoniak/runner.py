@@ -6,7 +6,7 @@ import os
 import click
 
 from amoniak import tasks
-from amoniak.utils import setup_logging
+from amoniak.utils import setup_logging, read_list_from_file
 from amoniak import VERSION
 
 
@@ -25,26 +25,43 @@ def amoniak(log_level, async):
     os.environ['RQ_ASYNC'] = str(async)
 
 @amoniak.command()
-def enqueue_all_amon_measures():
+@click.option('--tg_enabled', default=True)
+def enqueue_all_amon_measures(tg_enabled):
     logger = logging.getLogger('amon')
     logger.info('Enqueuing all amon measures')
-    tasks.enqueue_all_amon_measures()
+    tasks.enqueue_all_amon_measures(tg_enabled)
 
 
 @amoniak.command()
-def enqueue_measures():
+@click.option('--tg_enabled', default=True)
+@click.option('--contracts', default=[])
+def enqueue_measures(tg_enabled, contracts):
     logger = logging.getLogger('amon')
     logger.info('Enqueuing measures')
-    tasks.enqueue_measures()
+    contracts_id = None
+    try:
+        contracts_id = read_list_from_file(contracts, int)
+    except Exception, e:
+            logger.info('Failed loading contracts: {e}'.format(**locals()))
+            return
+    tasks.enqueue_measures(tg_enabled, contracts_id)
 
 
 @amoniak.command()
-def enqueue_contracts():
+@click.option('--tg_enabled', default=True)
+@click.option('--contracts', default=[])
+def enqueue_contracts(tg_enabled, contracts):
     logger = logging.getLogger('amon')
     logger.info('Enqueuing updated contracts')
-    tasks.enqueue_contracts()
+    contracts_id = None
+    try:
+        contracts_id = read_list_from_file(contracts, int)
+    except Exception, e:
+            logger.info('Failed loading contracts: {e}'.format(**locals()))
+            return
+    tasks.enqueue_contracts(tg_enabled, contracts_id)
     logger.info('Enqueuing new contracts')
-    tasks.enqueue_new_contracts()
+    tasks.enqueue_new_contracts(tg_enabled, contracts_id)
 
 
 if __name__ == '__main__':
