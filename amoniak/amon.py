@@ -265,6 +265,8 @@ class AmonConverter(object):
         muni_obj = self.O.ResMunicipi
         cups_fields = ['id_municipi', 'tv', 'nv', 'cpa', 'cpo', 'pnp', 'pt',
                        'name', 'es', 'pu', 'dp']
+        if 'empowering' in cups_obj.fields_get():
+            cups_fields.append('empowering')
         cups = cups_obj.read(cups_id, cups_fields)
         ine = muni_obj.read(cups['id_municipi'][0], ['ine'])['ine']
         res = {
@@ -277,7 +279,9 @@ class AmonConverter(object):
                     'street': get_street_name(cups),
                     'postalCode': cups['dp']
                 }
-            }
+            },
+            'experimentalGroupUserTest': 0,
+            'experimentalGroupUser': int(cups.get('empowering', 0))
         }
         return res
 
