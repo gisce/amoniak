@@ -13,7 +13,7 @@ INSTALL_REQUIRES = [
 
 setup(
     name='amoniak',
-    version='0.7.1',
+    version='0.8.0',
     packages=['amoniak', 'amoniak.caching'],
     url='http://gisce.net',
     license='MIT',
