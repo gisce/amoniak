@@ -3,7 +3,7 @@ from setuptools import setup
 INSTALL_REQUIRES = [
     'empowering',
     'erppeek',
-    'pymongo',
+    'pymongo<3',
     'rq',
     'modeldict',
     'times',
