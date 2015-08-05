@@ -60,6 +60,7 @@ class OTCaching(object):
             if self._get(contract, result_period):
                 # Delete cached result to replace it
                 self._delete_cached(contract, result_period)
+        for result in results['_items']:
             self._store(result)
 
     def validate_contract(self, values, contract, period=None, log_errors=True):
