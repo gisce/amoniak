@@ -517,12 +517,26 @@ class AmonConverter(object):
     def cups_to_amon(self, cups_id):
         cups_obj = self.O.GiscedataCupsPs
         muni_obj = self.O.ResMunicipi
+        state_obj = self.O.ResCountryState
+        sips_obj = self.O.GiscedataSipsPs
+
         cups_fields = ['id_municipi', 'tv', 'nv', 'cpa', 'cpo', 'pnp', 'pt',
                        'name', 'es', 'pu', 'dp']
         if 'empowering' in cups_obj.fields_get():
             cups_fields.append('empowering')
         cups = cups_obj.read(cups_id, cups_fields)
-        ine = muni_obj.read(cups['id_municipi'][0], ['ine'])['ine']
+
+        muni_id = cups['id_municipi'][0]
+        ine = muni_obj.read(muni_id, ['ine'])['ine']
+        state_id = muni_obj.read(muni_id, ['state'])['state'][0]
+        state = state_obj.read(state_id, ['code'])['code']
+        dp = cups['dp']
+
+        if not dp:
+            sips_id = sips_obj.search([('name', '=', cups['name'])])
+            if sips_id:
+                dp = sips_obj.read(int(sips_id[0]), ['codi_postal'])['codi_postal']
+
         res = {
             'meteringPointId': make_uuid('giscedata.cups.ps', cups['name']),
             'customer': {
@@ -531,7 +545,8 @@ class AmonConverter(object):
                     'cityCode': ine,
                     'countryCode': 'ES',
                     #'street': get_street_name(cups),
-                    'postalCode': cups['dp']
+                    'postalCode': dp,
+                    'provinceCode': state
                 }
             },
             'experimentalGroupUserTest': 0,
