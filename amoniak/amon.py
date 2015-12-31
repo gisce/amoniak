@@ -8,7 +8,7 @@ import logging
 from .cache import CUPS_CACHE, CUPS_UUIDS
 from .utils import recursive_update
 from empowering.utils import null_to_none, remove_none, make_uuid, make_utc_timestamp
-
+from .climatic_zones import CITYID_TO_ZC
 
 UNITS = {1: '', 1000: 'k'}
 
@@ -185,6 +185,7 @@ class AmonConverter(object):
                 continue
             device_uuid = make_uuid('giscedata.lectures.comptador', measure['comptador'][0])
 
+            period = measure['periode'][1][measure['periode'][1].find("(")+1:measure['periode'][1].find(")")].lower()
             if measure['tipus'] == 'A':
                 res.append({
                     "deviceId": device_uuid,
@@ -200,7 +201,10 @@ class AmonConverter(object):
                         {
                             "type": "electricityConsumption",
                             "timestamp": make_utc_timestamp(measure['date_end']),
-                            "value": float(measure['lectura'])
+                            "values":
+                                {
+                                    period: float(measure['lectura'])
+                                }
                         }
                     ]
                 })
@@ -214,13 +218,15 @@ class AmonConverter(object):
                             "type": "electricityKiloVoltAmpHours",
                             "unit": "%sVArh" % UNITS[measure.get('magn', 1000)],
                             "period": "CUMULATIVE",
+                            "dailyPeriod": period
                         }
                     ],
                     "measurements": [
                         {
                             "type": "electricityKiloVoltAmpHours",
                             "timestamp": make_utc_timestamp(measure['date_end']),
-                            "value": float(measure['lectura'])
+                            "value": float(measure['lectura']),
+                            "dailyPeriod": period
                         }
                     ]
                 })
@@ -363,6 +369,7 @@ class AmonConverter(object):
           "power": 123,
           "dateStart": "2013-10-11T16:37:05Z",
           "dateEnd": null,
+          "climaticZone": "climaticZoneId-123",
           "weatherStationId": "weatherStatioId-123",
           "version": 1,
           "activityCode": "activityCode",
@@ -437,6 +444,9 @@ class AmonConverter(object):
         pol = O.GiscedataPolissa
         modcon_obj = O.GiscedataPolissaModcontractual
 
+        cups_obj = O.GiscedataCupsPs
+        muni_obj = O.ResMunicipi
+
         building_obj = O.EmpoweringCupsBuilding
         profile_obj = O.EmpoweringModcontractualProfile
         service_obj = O.EmpoweringModcontractualService
@@ -465,6 +475,7 @@ class AmonConverter(object):
             profile_id = get_first(profile_obj.search([('modcontractual_id', '=', modcon_id)]))
             service_id = get_first(service_obj.search([('modcontractual_id', '=', modcon_id)]))
 
+
             contract = {
                 'ownerId': make_uuid('res.partner', modcon['titular'][0]),
                 'payerId': make_uuid('res.partner', modcon['pagador'][0]),
@@ -474,6 +485,7 @@ class AmonConverter(object):
                 'tariffId': modcon['tarifa'][1],
                 'power': int(modcon['potencia'] * 1000),
                 'version': int(modcon['name']),
+                'climaticZone': self.cups_to_climaticZone(modcon['cups'][0]),
                 'activityCode': modcon['cnae'] and modcon['cnae'][1] or None,
                 'customer': {
                     'customerId': make_uuid('res.partner', modcon['titular'][0]),
@@ -526,6 +538,16 @@ class AmonConverter(object):
             'experimentalGroupUser': int(cups.get('empowering', 0))
         }
         return res
+
+    def cups_to_climaticZone(self, cups_id):
+        cups_obj = self.O.GiscedataCupsPs
+        muni_obj = self.O.ResMunicipi
+        cups = cups_obj.read(cups_id, ['id_municipi'])
+        ine = muni_obj.read(cups['id_municipi'][0], ['ine'])['ine']
+        if ine in CITYID_TO_ZC.keys():
+            return CITYID_TO_ZC[ine]
+        else:
+            return None
 
 
 def check_response(response, amon_data):

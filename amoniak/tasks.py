@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
-from datetime import datetime
+from datetime import datetime,date
 import logging
 import urllib2
 
@@ -69,6 +69,7 @@ def enqueue_measures(tg_enabled=True, polisses_ids=[], bucket=500):
 
     cids = O.GiscedataLecturesComptador.search(search_params, context={'active_test': False})
     fields_to_read = ['name', 'empowering_last_measure']
+
     for comptador in O.GiscedataLecturesComptador.read(cids, fields_to_read):
         search_params = [
             ('comptador', '=', comptador['id'])
@@ -121,15 +122,15 @@ def enqueue_measures(tg_enabled=True, polisses_ids=[], bucket=500):
             #origen_comer_ids = O.GiscedataLecturesOrigenComer.search([('name','in',origen_comer_to_search)])
             #search_params.append(('origen_comer_id', 'in', origen_comer_ids))
 
-            measures_ids = O.GiscedataLecturesLecturaPool.search(search_params, limit=0, order="name asc")
+            measures_ids = O.GiscedataLecturesLectura.search(search_params, limit=0, order="name asc")
         logger.info("S'han trobat %s mesures per pujar" % len(measures_ids))
         popper = Popper(measures_ids)
         pops = popper.pop(bucket)
         while pops:
             j = push_amon_measures.delay(pops)
-            #logger.info("Job id:%s | %s/%s/%s" % (
-            #     j.id, comptador.get('name'), len(pops), len(popper.items))
-            #)
+            logger.info("Job id:%s | %s/%s/%s" % (
+                 j.id, comptador.get('name'), len(pops), len(popper.items))
+            )
             pops = popper.pop(bucket)
 
 
@@ -166,7 +167,7 @@ def enqueue_new_contracts(tg_enabled, polisses_ids =[], bucket=500):
     pops = popper.pop(bucket)
     while pops:
         j = push_contracts.delay(pops)
-        #logger.info("Job id:%s" % j.id)
+        logger.info("Job id:%s" % j.id)
         pops = popper.pop(bucket)
 
 
@@ -249,24 +250,25 @@ def push_amon_measures(tg_enabled, measures_ids):
                                       sort=[('date_end', pymongo.ASCENDING)])
         measures = [x for x in mdbmeasures]
     else:
-        fields_to_read = ['comptador', 'name', 'tipus', 'lectura']
+        fields_to_read = ['comptador', 'name', 'tipus', 'periode', 'lectura']
 
-        measures = O.GiscedataLecturesLecturaPool.read(measures_ids,fields_to_read)
+        measures = O.GiscedataLecturesLectura.read(measures_ids, fields_to_read)
         # NOTE: Tricky end_date rename
         for idx, item in enumerate(measures):
             measures[idx]['date_end']=measures[idx]['name']
 
     logger.info("Enviant de %s (id:%s) a %s (id:%s)" % (
-        measures[0]['date_end'], measures[0]['id'],
-        measures[-1]['date_end'], measures[-1]['id']
+        measures[-1]['date_end'], measures[-1]['id'],
+        measures[0]['date_end'], measures[0]['id']
     ))
     measures_to_push = amon.measure_to_amon(measures)
     stop = datetime.now()
     logger.info('Mesures transformades en %s' % (stop - start))
     start = datetime.now()
-    measures = em.amon_measures().create(measures_to_push)
     # Save last timestamp
-    last_measure = measures[-1]
+    last_measure = measures[0]
+    measures = em.hourly_discrimination_amon_measures().create(measures_to_push)
+    # TODO: Pending to check whether all measure were properly commited
 
     if tg_enabled:
         from .amon import get_device_serial
@@ -320,11 +322,13 @@ def push_contracts(contracts_id):
     if not isinstance(contracts_id, (list, tuple)):
         contracts_id = [contracts_id]
     for pol in O.GiscedataPolissa.read(contracts_id, ['modcontractuals_ids', 'name']):
+        logger.info("Polissa %s" %  pol['name'])
         cid = pol['id']
         upd = []
         first = True
         for modcon_id in reversed(pol['modcontractuals_ids']):
             amon_data = amon.contract_to_amon(cid, {'modcon_id': modcon_id})[0]
+
             if first:
                 response = em.contracts().create(amon_data)
                 first = False

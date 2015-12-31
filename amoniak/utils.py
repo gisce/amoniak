@@ -157,3 +157,11 @@ def read_list_from_file(filename, cast_type):
             return [cast_type(row[0]) for row in csv.reader(f)]
     else:
         return None
+
+
+def read_dict_from_file(filename, cast_type_key, cast_type_value):
+    if filename:
+        with open(filename, 'rb') as f:
+            return {cast_type_key(row[0]): cast_type_value(row[1]) for row in csv.reader(f)}
+    else:
+        return None
