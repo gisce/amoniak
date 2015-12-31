@@ -267,7 +267,7 @@ def push_amon_measures(tg_enabled, measures_ids):
     start = datetime.now()
     # Save last timestamp
     last_measure = measures[0]
-    measures = em.hourly_discrimination_amon_measures().create(measures_to_push)
+    measures = em.residential_timeofuse_amon_measures().create(measures_to_push)
     # TODO: Pending to check whether all measure were properly commited
 
     if tg_enabled:
