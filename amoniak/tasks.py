@@ -58,7 +58,9 @@ def enqueue_measures(tg_enabled=True, polisses_ids=[], bucket=500):
     em = setup_empowering_api()
     # TODO: Que fem amb les de baixa? les agafem igualment? només les que
     # TODO: faci menys de X que estan donades de baixa?
-    search_params = [('etag', '!=', False)]
+    search_params = [('etag', '!=', False),
+                     ('state', '=', 'activa'),
+                     ('cups.empowering', '=', True)]
     if isinstance(polisses_ids, list) and polisses_ids:
         search_params.append(('id', 'in', polisses_ids))
     pids = O.GiscedataPolissa.search(search_params)
@@ -136,7 +138,9 @@ def enqueue_measures(tg_enabled=True, polisses_ids=[], bucket=500):
 
 def enqueue_new_contracts(tg_enabled, polisses_ids =[], bucket=500):
     search_params = [
-        ('polissa.etag', '=', False)
+        ('polissa.state', '=', 'activa'),
+        ('polissa.etag', '=', False),
+        ('polissa.cups.empowering', '=', True)
     ]
     if tg_enabled:
         search_params.append(('tg_cnc_conn', '=', 1))
@@ -150,7 +154,7 @@ def enqueue_new_contracts(tg_enabled, polisses_ids =[], bucket=500):
         search_params.append(('polissa.id', 'in', polisses_ids))
     O = setup_peek()
     cids = O.GiscedataLecturesComptador.search(search_params,
-        context={'active_test': False}
+        context={'active_test': False} 
     )
     if not cids:
         return
@@ -175,7 +179,11 @@ def enqueue_contracts(tg_enabled, contracts_id=[]):
     O = setup_peek()
     em = setup_empowering_api()
     # Busquem els que hem d'actualitzar
-    search_params = [('etag', '!=', False)]
+    search_params = [
+        ('state', '=', 'activa'),
+        ('etag', '!=', False),
+        ('cups.empowering', '=', True)
+    ]
     if isinstance(contracts_id, list) and contracts_id:
         search_params.append(('id', 'in', contracts_id))
     polisses_ids = O.GiscedataPolissa.search(search_params)
