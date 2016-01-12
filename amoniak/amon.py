@@ -273,11 +273,13 @@ class AmonConverter(object):
          {
               "buildingConstructionYear": 2014,
               "dwellingArea": 196,
+              "propertyType": "primary",
               "buildingType": "Apartment",
               "dwellingPositionInBuilding": "first_floor",
               "dwellingOrientation": "SE",
               "buildingWindowsType": "double_panel",
               "buildingWindowsFrame": "PVC",
+              "buildingCoolingSource": "electricity",
               "buildingHeatingSource": "district_heating",
               "buildingHeatingSourceDhw": "gasoil",
               "buildingSolarSystem": "not_installed"
@@ -289,9 +291,10 @@ class AmonConverter(object):
         O = self.O
         building_obj = O.EmpoweringCupsBuilding
 
-        fields_to_read =  ['buildingConstructionYear', 'dwellingArea', 'buildingType', 'dwellingPositionInBuilding',
+        fields_to_read =  ['buildingConstructionYear', 'dwellingArea', 'propertyType', 'buildingType', 'dwellingPositionInBuilding',
                            'dwellingOrientation', 'buildingWindowsType', 'buildingWindowsFrame',
-                           'buildingHeatingSource', 'buildingHeatingSourceDhw', 'buildingSolarSystem']
+                           'buildingCoolingSource', 'buildingHeatingSource', 'buildingHeatingSourceDhw',
+                           'buildingSolarSystem']
         building = building_obj.read(building_id)
 
         return remove_none(null_to_none({ field: building[field] for field in fields_to_read}))
@@ -396,11 +399,13 @@ class AmonConverter(object):
             "buildingData": {
               "buildingConstructionYear": 2014,
               "dwellingArea": 196,
+              "propertyType": "primary",
               "buildingType": "Apartment",
               "dwellingPositionInBuilding": "first_floor",
               "dwellingOrientation": "SE",
               "buildingWindowsType": "double_panel",
               "buildingWindowsFrame": "PVC",
+              "buildingCoolingSource": "electricity",
               "buildingHeatingSource": "district_heating",
               "buildingHeatingSourceDhw": "gasoil",
               "buildingSolarSystem": "not_installed"
@@ -549,8 +554,8 @@ class AmonConverter(object):
                     'provinceCode': state
                 }
             },
-            'experimentalGroupUserTest': 0,
-            'experimentalGroupUser': int(cups.get('empowering', 0))
+            'experimentalGroupUserTest': False,
+            'experimentalGroupUser': cups.get('empowering', False)
         }
         return res
 

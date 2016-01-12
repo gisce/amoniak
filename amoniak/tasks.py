@@ -138,7 +138,6 @@ def enqueue_measures(tg_enabled=True, polisses_ids=[], bucket=500):
 
 def enqueue_new_contracts(tg_enabled, polisses_ids =[], bucket=500):
     search_params = [
-        ('polissa.state', '=', 'activa'),
         ('polissa.etag', '=', False),
         ('polissa.cups.empowering', '=', True)
     ]
