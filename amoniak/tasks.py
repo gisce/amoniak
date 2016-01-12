@@ -43,7 +43,7 @@ def enqueue_all_amon_measures(tg_enabled=True, bucket=500):
         measures_to_push = []
         for idx, measure in enumerate(measures):
             if idx and not idx % bucket:
-                j = push_amon_measures.delay(measures_to_push)
+                j = push_amon_measures.delay(tg_enabled, measures_to_push)
                 logger.info("Job id:%s | %s/%s/%s" % (
                     j.id, meter_name, idx, bucket)
                 )
@@ -129,7 +129,7 @@ def enqueue_measures(tg_enabled=True, polisses_ids=[], bucket=500):
         popper = Popper(measures_ids)
         pops = popper.pop(bucket)
         while pops:
-            j = push_amon_measures.delay(pops)
+            j = push_amon_measures.delay(tg_enabled, pops)
             logger.info("Job id:%s | %s/%s/%s" % (
                  j.id, comptador.get('name'), len(pops), len(popper.items))
             )
