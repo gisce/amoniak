@@ -33,6 +33,12 @@ class Popper(object):
     def __init__(self, items):
         self.items = list(items)
 
+    def push(self, items):
+        if isinstance(items, list):
+            self.items += items
+        else:
+            self.items.append(items)
+
     def pop(self, n):
         res = []
         for x in xrange(0, min(n, len(self.items))):

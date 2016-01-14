@@ -72,6 +72,7 @@ def enqueue_measures(tg_enabled=True, polisses_ids=[], bucket=500):
     cids = O.GiscedataLecturesComptador.search(search_params, context={'active_test': False})
     fields_to_read = ['name', 'empowering_last_measure']
 
+    popper = Popper([])
     for comptador in O.GiscedataLecturesComptador.read(cids, fields_to_read):
         search_params = [
             ('comptador', '=', comptador['id'])
@@ -126,14 +127,14 @@ def enqueue_measures(tg_enabled=True, polisses_ids=[], bucket=500):
 
             measures_ids = O.GiscedataLecturesLectura.search(search_params, limit=0, order="name asc")
         logger.info("S'han trobat %s mesures per pujar" % len(measures_ids))
-        popper = Popper(measures_ids)
+        popper.push(measures_ids)
+    pops = popper.pop(bucket)
+    while pops:
+        j = push_amon_measures.delay(tg_enabled, pops)
+        logger.info("Job id:%s | %s/%s" % (
+             j.id, len(pops), len(popper.items))
+        )
         pops = popper.pop(bucket)
-        while pops:
-            j = push_amon_measures.delay(tg_enabled, pops)
-            logger.info("Job id:%s | %s/%s/%s" % (
-                 j.id, comptador.get('name'), len(pops), len(popper.items))
-            )
-            pops = popper.pop(bucket)
 
 
 def enqueue_new_contracts(tg_enabled, polisses_ids =[], bucket=500):
@@ -272,28 +273,26 @@ def push_amon_measures(tg_enabled, measures_ids):
     stop = datetime.now()
     logger.info('Mesures transformades en %s' % (stop - start))
     start = datetime.now()
-    # Save last timestamp
-    last_measure = measures[0]
-    measures = em.residential_timeofuse_amon_measures().create(measures_to_push)
+
+    measures_pushed = em.residential_timeofuse_amon_measures().create(measures_to_push)
     # TODO: Pending to check whether all measure were properly commited
 
     if tg_enabled:
-        from .amon import get_device_serial
+        for measure in measures:
+            from .amon import get_device_serial
 
-        serial = get_device_serial(last_measure['name'])
-        cids = O.GiscedataLecturesComptador.search([('name', '=', serial)], context={'active_test': False})
-
-        empowering_last_measure = '%s' % last_measure['date_end']
-        O.GiscedataLecturesComptador.update_empowering_last_measure(cids, empowering_last_measure)
+            serial = get_device_serial(last_measure['name'])
+            cids = O.GiscedataLecturesComptador.search([('name', '=', serial)], context={'active_test': False})
+            O.GiscedataLecturesComptador.update_empowering_last_measure(cids, '%s' % measure['date_end'])
         mongo.connection.disconnect()
     else:
-        empowering_last_measure = '%s' % last_measure['date_end']
-        O.GiscedataLecturesComptador.update_empowering_last_measure(
-            [last_measure['comptador'][0]], empowering_last_measure
-        )
+        for measure in measures:
+          O.GiscedataLecturesComptador.update_empowering_last_measure(
+                [measure['comptador'][0]], '%s' % measure['date_end'] 
+          )
     stop = datetime.now()
     logger.info('Mesures enviades en %s' % (stop - start))
-    logger.info("%s measures creades" % len(measures))
+    logger.info("%s measures creades" % len(measures_pushed))
 
 
 @job(setup_queue(name='contracts'), connection=setup_redis(), timeout=3600)
