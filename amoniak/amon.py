@@ -8,7 +8,8 @@ import logging
 from .cache import CUPS_CACHE, CUPS_UUIDS
 from .utils import recursive_update
 from empowering.utils import null_to_none, remove_none, make_uuid, make_utc_timestamp
-from .climatic_zones import CITYID_TO_ZC
+from .climatic_zones import ine_to_zc 
+from .postal_codes import ine_to_dp 
 
 UNITS = {1: '', 1000: 'k'}
 
@@ -541,6 +542,9 @@ class AmonConverter(object):
             sips_id = sips_obj.search([('name', '=', cups['name'])])
             if sips_id:
                 dp = sips_obj.read(int(sips_id[0]), ['codi_postal'])['codi_postal']
+            else:
+                if ine in ine_to_dp:
+                    dp = ine_to_dp[ine]
 
         res = {
             'meteringPointId': make_uuid('giscedata.cups.ps', cups['name']),
@@ -564,8 +568,8 @@ class AmonConverter(object):
         muni_obj = self.O.ResMunicipi
         cups = cups_obj.read(cups_id, ['id_municipi'])
         ine = muni_obj.read(cups['id_municipi'][0], ['ine'])['ine']
-        if ine in CITYID_TO_ZC.keys():
-            return CITYID_TO_ZC[ine]
+        if ine in ine_to_zc.keys():
+            return ine_to_zc[ine]
         else:
             return None
 
