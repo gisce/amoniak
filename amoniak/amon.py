@@ -8,7 +8,8 @@ import logging
 from .cache import CUPS_CACHE, CUPS_UUIDS
 from .utils import recursive_update
 from empowering.utils import null_to_none, remove_none, make_uuid, make_utc_timestamp
-
+from .climatic_zones import ine_to_zc 
+from .postal_codes import ine_to_dp 
 
 UNITS = {1: '', 1000: 'k'}
 
@@ -185,6 +186,7 @@ class AmonConverter(object):
                 continue
             device_uuid = make_uuid('giscedata.lectures.comptador', measure['comptador'][0])
 
+            period = measure['periode'][1][measure['periode'][1].find("(")+1:measure['periode'][1].find(")")].lower()
             if measure['tipus'] == 'A':
                 res.append({
                     "deviceId": device_uuid,
@@ -200,7 +202,10 @@ class AmonConverter(object):
                         {
                             "type": "electricityConsumption",
                             "timestamp": make_utc_timestamp(measure['date_end']),
-                            "value": float(measure['lectura'])
+                            "values":
+                                {
+                                    period: float(measure['lectura'])
+                                }
                         }
                     ]
                 })
@@ -214,13 +219,15 @@ class AmonConverter(object):
                             "type": "electricityKiloVoltAmpHours",
                             "unit": "%sVArh" % UNITS[measure.get('magn', 1000)],
                             "period": "CUMULATIVE",
+                            "dailyPeriod": period
                         }
                     ],
                     "measurements": [
                         {
                             "type": "electricityKiloVoltAmpHours",
                             "timestamp": make_utc_timestamp(measure['date_end']),
-                            "value": float(measure['lectura'])
+                            "value": float(measure['lectura']),
+                            "dailyPeriod": period
                         }
                     ]
                 })
@@ -267,11 +274,13 @@ class AmonConverter(object):
          {
               "buildingConstructionYear": 2014,
               "dwellingArea": 196,
+              "propertyType": "primary",
               "buildingType": "Apartment",
               "dwellingPositionInBuilding": "first_floor",
               "dwellingOrientation": "SE",
               "buildingWindowsType": "double_panel",
               "buildingWindowsFrame": "PVC",
+              "buildingCoolingSource": "electricity",
               "buildingHeatingSource": "district_heating",
               "buildingHeatingSourceDhw": "gasoil",
               "buildingSolarSystem": "not_installed"
@@ -283,9 +292,10 @@ class AmonConverter(object):
         O = self.O
         building_obj = O.EmpoweringCupsBuilding
 
-        fields_to_read =  ['buildingConstructionYear', 'dwellingArea', 'buildingType', 'dwellingPositionInBuilding',
+        fields_to_read =  ['buildingConstructionYear', 'dwellingArea', 'propertyType', 'buildingType', 'dwellingPositionInBuilding',
                            'dwellingOrientation', 'buildingWindowsType', 'buildingWindowsFrame',
-                           'buildingHeatingSource', 'buildingHeatingSourceDhw', 'buildingSolarSystem']
+                           'buildingCoolingSource', 'buildingHeatingSource', 'buildingHeatingSourceDhw',
+                           'buildingSolarSystem']
         building = building_obj.read(building_id)
 
         return remove_none(null_to_none({ field: building[field] for field in fields_to_read}))
@@ -363,6 +373,7 @@ class AmonConverter(object):
           "power": 123,
           "dateStart": "2013-10-11T16:37:05Z",
           "dateEnd": null,
+          "climaticZone": "climaticZoneId-123",
           "weatherStationId": "weatherStatioId-123",
           "version": 1,
           "activityCode": "activityCode",
@@ -389,11 +400,13 @@ class AmonConverter(object):
             "buildingData": {
               "buildingConstructionYear": 2014,
               "dwellingArea": 196,
+              "propertyType": "primary",
               "buildingType": "Apartment",
               "dwellingPositionInBuilding": "first_floor",
               "dwellingOrientation": "SE",
               "buildingWindowsType": "double_panel",
               "buildingWindowsFrame": "PVC",
+              "buildingCoolingSource": "electricity",
               "buildingHeatingSource": "district_heating",
               "buildingHeatingSourceDhw": "gasoil",
               "buildingSolarSystem": "not_installed"
@@ -437,6 +450,9 @@ class AmonConverter(object):
         pol = O.GiscedataPolissa
         modcon_obj = O.GiscedataPolissaModcontractual
 
+        cups_obj = O.GiscedataCupsPs
+        muni_obj = O.ResMunicipi
+
         building_obj = O.EmpoweringCupsBuilding
         profile_obj = O.EmpoweringModcontractualProfile
         service_obj = O.EmpoweringModcontractualService
@@ -465,6 +481,7 @@ class AmonConverter(object):
             profile_id = get_first(profile_obj.search([('modcontractual_id', '=', modcon_id)]))
             service_id = get_first(service_obj.search([('modcontractual_id', '=', modcon_id)]))
 
+
             contract = {
                 'ownerId': make_uuid('res.partner', modcon['titular'][0]),
                 'payerId': make_uuid('res.partner', modcon['pagador'][0]),
@@ -474,6 +491,7 @@ class AmonConverter(object):
                 'tariffId': modcon['tarifa'][1],
                 'power': int(modcon['potencia'] * 1000),
                 'version': int(modcon['name']),
+                'climaticZone': self.cups_to_climaticZone(modcon['cups'][0]),
                 'activityCode': modcon['cnae'] and modcon['cnae'][1] or None,
                 'customer': {
                     'customerId': make_uuid('res.partner', modcon['titular'][0]),
@@ -505,12 +523,29 @@ class AmonConverter(object):
     def cups_to_amon(self, cups_id):
         cups_obj = self.O.GiscedataCupsPs
         muni_obj = self.O.ResMunicipi
+        state_obj = self.O.ResCountryState
+        sips_obj = self.O.GiscedataSipsPs
+
         cups_fields = ['id_municipi', 'tv', 'nv', 'cpa', 'cpo', 'pnp', 'pt',
                        'name', 'es', 'pu', 'dp']
         if 'empowering' in cups_obj.fields_get():
             cups_fields.append('empowering')
         cups = cups_obj.read(cups_id, cups_fields)
-        ine = muni_obj.read(cups['id_municipi'][0], ['ine'])['ine']
+
+        muni_id = cups['id_municipi'][0]
+        ine = muni_obj.read(muni_id, ['ine'])['ine']
+        state_id = muni_obj.read(muni_id, ['state'])['state'][0]
+        state = state_obj.read(state_id, ['code'])['code']
+        dp = cups['dp']
+
+        if not dp:
+            sips_id = sips_obj.search([('name', '=', cups['name'])])
+            if sips_id:
+                dp = sips_obj.read(int(sips_id[0]), ['codi_postal'])['codi_postal']
+            else:
+                if ine in ine_to_dp:
+                    dp = ine_to_dp[ine]
+
         res = {
             'meteringPointId': make_uuid('giscedata.cups.ps', cups['name']),
             'customer': {
@@ -519,13 +554,24 @@ class AmonConverter(object):
                     'cityCode': ine,
                     'countryCode': 'ES',
                     #'street': get_street_name(cups),
-                    'postalCode': cups['dp']
+                    'postalCode': dp,
+                    'provinceCode': state
                 }
             },
-            'experimentalGroupUserTest': 0,
-            'experimentalGroupUser': int(cups.get('empowering', 0))
+            'experimentalGroupUserTest': False,
+            'experimentalGroupUser': cups.get('empowering', False)
         }
         return res
+
+    def cups_to_climaticZone(self, cups_id):
+        cups_obj = self.O.GiscedataCupsPs
+        muni_obj = self.O.ResMunicipi
+        cups = cups_obj.read(cups_id, ['id_municipi'])
+        ine = muni_obj.read(cups['id_municipi'][0], ['ine'])['ine']
+        if ine in ine_to_zc.keys():
+            return ine_to_zc[ine]
+        else:
+            return None
 
 
 def check_response(response, amon_data):

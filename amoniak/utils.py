@@ -33,6 +33,12 @@ class Popper(object):
     def __init__(self, items):
         self.items = list(items)
 
+    def push(self, items):
+        if isinstance(items, list):
+            self.items += items
+        else:
+            self.items.append(items)
+
     def pop(self, n):
         res = []
         for x in xrange(0, min(n, len(self.items))):
@@ -155,5 +161,13 @@ def read_list_from_file(filename, cast_type):
     if filename:
         with open(filename, 'rb') as f:
             return [cast_type(row[0]) for row in csv.reader(f)]
+    else:
+        return None
+
+
+def read_dict_from_file(filename, cast_type_key, cast_type_value):
+    if filename:
+        with open(filename, 'rb') as f:
+            return {cast_type_key(row[0]): cast_type_value(row[1]) for row in csv.reader(f)}
     else:
         return None

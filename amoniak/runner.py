@@ -36,6 +36,7 @@ def enqueue_all_amon_measures(tg_enabled):
 @click.option('--tg_enabled', default=True)
 @click.option('--contracts', default=[])
 def enqueue_measures(tg_enabled, contracts):
+    tg_enabled = False
     logger = logging.getLogger('amon')
     logger.info('Enqueuing measures')
     contracts_id = None
@@ -51,6 +52,7 @@ def enqueue_measures(tg_enabled, contracts):
 @click.option('--tg_enabled', default=True)
 @click.option('--contracts', default=[])
 def enqueue_contracts(tg_enabled, contracts):
+    tg_enabled = False
     logger = logging.getLogger('amon')
     logger.info('Enqueuing updated contracts')
     contracts_id = None
