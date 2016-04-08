@@ -130,7 +130,7 @@ def enqueue_contracts():
     polisses_ids = O.GiscedataPolissa.search([('etag', '!=', False)])
     if not polisses_ids:
         return
-    fields_to_read = ['name', 'etag', 'comptadors', 'modcontractual_activa]
+    fields_to_read = ['name', 'etag', 'comptadors', 'modcontractual_activa']
     for polissa in O.GiscedataPolissa.read(polisses_ids, fields_to_read):
         modcons = []
         is_new_contract = False
