@@ -130,7 +130,8 @@ def enqueue_contracts():
     polisses_ids = O.GiscedataPolissa.search([('etag', '!=', False)])
     if not polisses_ids:
         return
-    for polissa in O.GiscedataPolissa.read(polisses_ids, ['name', 'etag']):
+    fields_to_read = ['name', 'etag', 'comptadors', 'modcontractual_activa]
+    for polissa in O.GiscedataPolissa.read(polisses_ids, fields_to_read):
         modcons = []
         is_new_contract = False
         try:
@@ -146,6 +147,10 @@ def enqueue_contracts():
             last_updated = '0'
 
         w_date = O.GiscedataPolissa.perm_read(polissa['id'])[0]['write_date']
+        c_w_dates = []
+        for comp_perm in O.GiscedataLecturesComptador.perm_read(polissa['comptadors]):
+            c_w_dates.append(comp_perm['write_date'])
+        c_w_date = max(c_w_dates)
         if w_date > last_updated and not is_new_contract:
             # Ara mirem quines modificaciones contractuals hem de pujar
             polissa = O.GiscedataPolissa.browse(polissa['id'])
@@ -156,6 +161,11 @@ def enqueue_contracts():
                                 'date: %s last_update: %s' % (
                         modcon.name, perms['write_date'], last_updated))
                     modcons.append(modcon.id)
+        elif c_w_date > last_updated and not is_new_contract:
+            # Si no hi ha hagut canvis a les modificacions contractuals
+            # però sí que s'ha tocat algun comptador fem una actualització
+            # amb la última modificació contractual
+            modcons.append(polissa['modcontractual_activa'][0])
         if modcons:
             logger.info('Polissa %s actualitzada a %s després de %s' % (
                 polissa.name, w_date, last_updated))
