@@ -48,7 +48,7 @@ def enqueue_measures(bucket=500, contracts=None):
             logger.info(u"Última lectura trobada: %s" % last_measure)
             from_date = last_measure
         measures = c.GiscedataLecturesComptador.get_aggregated_measures(
-            cids, from_date
+            [comptador['id']], from_date
         )
         logger.info("S'han trobat %s mesures per pujar" % (
             len(measures)
