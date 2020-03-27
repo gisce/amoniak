@@ -118,11 +118,12 @@ def setup_empowering_api(**kwargs):
     return em
 
 
-def setup_redis():
+def setup_redis(**kwargs):
     global __REDIS_POOL
     if not __REDIS_POOL:
         __REDIS_POOL = redis.ConnectionPool()
-    r = redis.Redis(connection_pool=__REDIS_POOL)
+    config = config_from_environment('REDIS', [], **kwargs)
+    r = redis.Redis(connection_pool=__REDIS_POOL, **config)
     return r
 
 
