@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
 from hashlib import sha1
+from copy import deepcopy
 import json
 import logging
 
@@ -67,7 +68,7 @@ class AmonConverter(object):
     def aggregated_measures_to_amon(self, measures):
         res = {'R': [], 'T': []}
 
-        for m in measures:
+        for m in deepcopy(measures):
             values = {}
             for agg in m['measures']:
                 t = agg.pop('tipus')
@@ -95,19 +96,19 @@ class AmonConverter(object):
             readings = []
             if measurements['A']['values']:
                 readings.append({
-                    "type_": measurements['A']['type'],
+                    "type": measurements['A']['type'],
                     "unit": "kWh",
                     "period": "INSTANT",
                 })
             if measurements['R']['values']:
                 readings.append({
-                    "type_": measurements['R']['type'],
+                    "type": measurements['R']['type'],
                     "unit": "kVArh",
                     "period": "INSTANT",
                 })
             if measurements['P']['values']:
                 readings.append({
-                    "type_": measurements['P']['type'],
+                    "type": measurements['P']['type'],
                     "unit": "kW",
                     "period": "INSTANT",
                 })
@@ -115,7 +116,7 @@ class AmonConverter(object):
                 'deviceId': deviceId,
                 'meteringPointId': make_uuid('giscedata.cups.ps', m['cups']),
                 'readings': readings,
-                'measurements': measurements
+                'measurements': [v for v in measurements.values() if v['values']]
             })
         return res
 

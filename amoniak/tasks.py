@@ -21,12 +21,15 @@ sentry = Client()
 logger = logging.getLogger('amon')
 
 
-def enqueue_measures(bucket=500):
+def enqueue_measures(bucket=500, contracts=None):
     # First get all the contracts that are in sync
     c = setup_peek()
     # TODO: Que fem amb les de baixa? les agafem igualment? només les que
     # TODO: faci menys de X que estan donades de baixa?
-    pids = c.GiscedataPolissa.search([('etag', '!=', False)])
+    search_params = [('etag', '!=', False)]
+    if contracts:
+        search_params.append(('name', 'in', contracts))
+    pids = c.GiscedataPolissa.search(search_params)
     # Comptadors que tingui aquesta pòlissa i que siguin de telegestió
     cids = c.GiscedataLecturesComptador.search([
         ('polissa', 'in', pids)
@@ -145,13 +148,13 @@ def push_amon_measures(measures):
     """Pugem les mesures a l'Insight Engine
     """
     with setup_empowering_api() as em:
-        O = setup_peek()
-        amon = AmonConverter(O)
+        c = setup_peek()
+        amon = AmonConverter(c)
         start = datetime.now()
         measures_to_push = amon.aggregated_measures_to_amon(measures)
         logger.info("Enviant de %s (id:%s) a %s (id:%s)" % (
-            measures[0]['timestamp'], measures[0]['id'],
-            measures[-1]['timestamp'], measures[-1]['id']
+            measures[0]['timestamp'], measures[0]['meter_id'],
+            measures[-1]['timestamp'], measures[-1]['meter_id']
         ))
         stop = datetime.now()
         logger.info('Mesures transformades en %s' % (stop - start))
@@ -159,13 +162,17 @@ def push_amon_measures(measures):
         # Check which endpoint to use
         residential = measures_to_push.get('R')
         if residential:
+            logger.debug('Pushing %s', residential)
             em.residential_timeofuse_amon_measures().create(residential)
         tertiary = measures_to_push.get('T')
         if tertiary:
+            logger.debug('Pushing %s', residential)
             em.tertiary_amon_measures().create(tertiary)
         # Save last timestamp
         last_measure = measures[-1]
-        last_measure.update_empowering_last_measure(last_measure['timestamp'])
+        c.GiscedataLecturesComptador.update_empowering_last_measure(
+            [last_measure['meter_id']], last_measure['timestamp']
+        )
         stop = datetime.now()
         logger.info('Mesures enviades en %s' % (stop - start))
         logger.info("%s measures creades" % len(measures))
