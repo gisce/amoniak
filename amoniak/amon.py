@@ -45,10 +45,9 @@ class AmonConverter(object):
     def __init__(self, connection):
         self.O = connection
 
-    def get_cups_from_device(self, device_id):
+    def get_cups_from_device(self, serial):
         O = self.O
         # Remove brand prefix and right zeros
-        serial = get_device_serial(device_id)
         if serial in CUPS_CACHE:
             return CUPS_CACHE[serial]
         else:
@@ -65,7 +64,62 @@ class AmonConverter(object):
                 CUPS_CACHE[serial] = res
             return res
 
-    def profile_to_amon(self, profiles):
+    def aggregated_measures_to_amon(self, measures):
+        res = {'R': [], 'T': []}
+
+        for m in measures:
+            values = {}
+            for agg in m['measures']:
+                t = agg.pop('tipus')
+                values.setdefault(t, {})
+                values[t].update(agg)
+
+            measurements = {
+                'A': {
+                    'timestamp': make_utc_timestamp(m['timestamp']),
+                    'type': m['resource'] == 'R' and 'touElectricityConsumption' or 'tertiaryElectricityConsumption',
+                    'values': values.get('A')
+                },
+                'R': {
+                    'timestamp': make_utc_timestamp(m['timestamp']),
+                    'type': m['resource'] == 'R' and 'touElectricityKiloVoltAmpHours' or 'tertiaryElectricityKiloVoltAmpHours',
+                    'values': values.get('R')
+                },
+                'P': {
+                    'timestamp': make_utc_timestamp(m['timestamp']),
+                    'type': m['resource'] == 'R' and 'touPower' or 'tertiaryPower',
+                    'values': values.get('R')
+                }
+            }
+            deviceId = make_uuid('giscedata.lectures.comptador', m['meter_id'])
+            readings = []
+            if measurements['A']['values']:
+                readings.append({
+                    "type_": measurements['A']['type'],
+                    "unit": "kWh",
+                    "period": "INSTANT",
+                })
+            if measurements['R']['values']:
+                readings.append({
+                    "type_": measurements['R']['type'],
+                    "unit": "kVArh",
+                    "period": "INSTANT",
+                })
+            if measurements['P']['values']:
+                readings.append({
+                    "type_": measurements['P']['type'],
+                    "unit": "kW",
+                    "period": "INSTANT",
+                })
+            res[m['resource']].append({
+                'deviceId': deviceId,
+                'meteringPointId': make_uuid('giscedata.cups.ps', m['cups']),
+                'readings': readings,
+                'measurements': measurements
+            })
+        return res
+
+    def power_measure_to_amon(self, measures):
         """Return a list of AMON readinds.
 
         {
@@ -98,41 +152,132 @@ class AmonConverter(object):
             ]
         }
         """
-        O = self.O
         res = []
-        if not hasattr(profiles, '__iter__'):
-            profiles = [profiles]
-        for profile in profiles:
-            mp_uuid = self.get_cups_from_device(profile['name'])
-            if not mp_uuid:
-                logger.info("No mp_uuid for &s" % profile['name'])
-                continue
-            device_uuid = make_uuid('giscedata.lectures.comptador', profile['name'])
+        if not hasattr(measures, '__iter__'):
+            measures = [measures]
+
+        for measure in measures:
+            mp_uuid = make_uuid(
+                'giscedata.cups.ps', measure.comptador.polissa.cups.name
+            )
+            device_uuid = make_uuid(
+                'giscedata.lectures.comptador', measure.comptador.id
+            )
+            readings = []
+            if measure.period.tarifa.name.startswith('2'):
+                # measurements of 2.X
+                readings += [{
+                    "type":  "touPower",
+                    "unit": "%sW" % UNITS[measure.get('magn', 1000)],
+                    "period": "INSTANT",
+                }]
+            else:
+                # tertiaryMeasurements
+                readings += [{
+                    "type": "tertiaryPower",
+                    "unit": "%sW" % UNITS[measure.get('magn', 1000)],
+                    "period": "INSTANT",
+                }]
+
             res.append({
                 "deviceId": device_uuid,
                 "meteringPointId": mp_uuid,
-                "readings": [
-                    {
-                        "type":  "electricityConsumption",
-                        "unit": "%sWh" % UNITS[profile.get('magn', 1000)],
-                        "period": "CUMULATIVE",
-                    },
-                    {
-                        "type": "electricityKiloVoltAmpHours",
-                        "unit": "%sVArh" % UNITS[profile.get('magn', 1000)],
-                        "period": "CUMULATIVE",
-                    }
-                ],
+                "readings": readings,
                 "measurements": [
                     {
-                        "type": "electricityConsumption",
-                        "timestamp": make_utc_timestamp(profile['date_end']),
-                        "value": float(profile['ai'])
-                    },
+                        "type": readings[0]["type"],
+                        "timestamp": make_utc_timestamp(measure.name),
+                        "values": {
+                            measure.periode.name: float(measure.lectura)
+                        }
+                    }
+                ]
+            })
+        return res
+
+    def energy_measure_to_amon(self, measures):
+        """Return a list of AMON readinds.
+
+        {
+            "utilityId": "Utility Id",
+            "deviceId": "c1810810-0381-012d-25a8-0017f2cd3574",
+            "meteringPointId": "c1759810-90f3-012e-0404-34159e211070",
+            "readings": [
+                {
+                    "type_": "electricityConsumption",
+                    "unit": "kWh",
+                    "period": "INSTANT",
+                },
+                {
+                    "type_": "electricityKiloVoltAmpHours",
+                    "unit": "kVArh",
+                    "period": "INSTANT",
+                }
+            ],
+            "measurements": [
+                {
+                    "type_": "electricityConsumption",
+                    "timestamp": "2010-07-02T11:39:09Z", # UTC
+                    "value": 7
+                },
+                {
+                    "type_": "electricityKiloVoltAmpHours",
+                    "timestamp": "2010-07-02T11:44:09Z", # UTC
+                    "value": 6
+                }
+            ]
+        }
+        """
+        res = []
+        if not hasattr(measures, '__iter__'):
+            measures = [measures]
+
+        for measure in measures:
+            mp_uuid = make_uuid(
+                'giscedata.cups.ps', measure.comptador.polissa.cups.name
+            )
+            device_uuid = make_uuid(
+                'giscedata.lectures.comptador', measure.comptador.id
+            )
+            readings = []
+            if measure.period.tarifa.name.startswith('2'):
+                # measurements of 2.X
+                if measure.tipus == 'A':
+                    readings += [{
+                        "type":  "touElectricityConsumption",
+                        "unit": "%sWh" % UNITS[measure.get('magn', 1000)],
+                        "period": "INSTANT",
+                    }]
+                elif measure.tipus == 'R':
+                    readings += [{
+                        "type": "touElectricityKiloVoltAmpHours",
+                        "unit": "%sVArh" % UNITS[measure.get('magn', 1000)],
+                        "period": "INSTANT",
+                    }]
+            else:
+                # tertiaryMeasurements
+                if measure.tipus == 'A':
+                    readings += [{
+                        "type": "tertiaryElectricityConsumption",
+                        "unit": "%sWh" % UNITS[measure.get('magn', 1000)],
+                        "period": "INSTANT",
+                    }]
+                elif measure.tipus == 'R':
+                    readings += [{
+                        "type": "tertiaryElectricityKiloVoltAmpHours",
+                        "unit": "%sVArh" % UNITS[measure.get('magn', 1000)],
+                        "period": "INSTANT",
+                    }]
+
+            res.append({
+                "deviceId": device_uuid,
+                "meteringPointId": mp_uuid,
+                "readings": readings,
+                "measurements": [
                     {
-                        "type": "electricityKiloVoltAmpHours",
-                        "timestamp": make_utc_timestamp(profile['date_end']),
-                        "value": float(profile['r1'])
+                        "type": readings[0]["type"],
+                        "timestamp": make_utc_timestamp(measure.name),
+                        "value": float(measure.consum)
                     }
                 ]
             })
@@ -216,7 +361,9 @@ class AmonConverter(object):
         modcon_obj = O.GiscedataPolissaModcontractual
         if not hasattr(contract_ids, '__iter__'):
             contract_ids = [contract_ids]
-        fields_to_read = ['modcontractual_activa', 'name', 'cups', 'comptadors', 'state']
+        fields_to_read = [
+            'modcontractual_activa', 'name', 'cups', 'comptadors', 'state'
+        ]
         for polissa in pol.read(contract_ids, fields_to_read):
             if polissa['state'] in ('esborrany', 'validar'):
                 continue
@@ -228,20 +375,28 @@ class AmonConverter(object):
                 logger.error("Problema amb la polissa %s" % polissa['name'])
                 continue
             contract = {
+                'contractId': polissa['name'],
                 'ownerId': make_uuid('res.partner', modcon['titular'][0]),
                 'payerId': make_uuid('res.partner', modcon['pagador'][0]),
+                'signerId': make_uuid('res.partner', modcon['pagador'][0]),
+                'power': int(modcon['potencia'] * 1000),
                 'dateStart': make_utc_timestamp(modcon['data_inici']),
                 'dateEnd': make_utc_timestamp(modcon['data_final']),
-                'contractId': polissa['name'],
                 'tariffId': modcon['tarifa'][1],
-                'power': int(modcon['potencia'] * 1000),
+                'tariffCostId': modcon['llista_preu'][1],
                 'version': int(modcon['name']),
-                'activityCode': modcon['cnae'] and modcon['cnae'][1] or None,
+                'activityCode': modcon['cnae'] and modcon['cnae'][1].split(' ')[0] or None,
                 'customer': {
                     'customerId': make_uuid('res.partner', modcon['titular'][0]),
                 },
                 'devices': self.device_to_amon(polissa['comptadors'])
             }
+
+            # Get tertiary power
+            contract['tertiaryPower'] = {}
+            for period, power in pol.get_potencies_dict(polissa['id']).items():
+                contract['tertiaryPower'][period.lower()] = int(power * 1000)
+
             cups = self.cups_to_amon(modcon['cups'][0])
             recursive_update(contract, cups)
             res.append(remove_none(contract, context))
@@ -255,8 +410,7 @@ class AmonConverter(object):
             devices.append({
                 'dateStart': make_utc_timestamp(comptador['data_alta']),
                 'dateEnd': make_utc_timestamp(comptador['data_baixa']),
-                'deviceId': make_uuid('giscedata.lectures.comptador',
-                                      compt_obj.build_name_tg(comptador['id']))
+                'deviceId': make_uuid('giscedata.lectures.comptador', comptador['id'])
             })
         return devices
 

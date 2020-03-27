@@ -10,9 +10,17 @@ from amoniak.utils import setup_logging
 from amoniak import VERSION
 
 
+def print_version(ctx, param, value):
+    if not value or ctx.resilient_parsing:
+        return
+    click.echo(VERSION)
+    ctx.exit()
+
 @click.group()
 @click.option('--log-level', default='info')
 @click.option('--async/--no-async', default=True)
+@click.option('--version', is_flag=True, callback=print_version,
+              expose_value=False, is_eager=True)
 def amoniak(log_level, async):
     MODE = {True: 'ASYNC', False: 'SYNC'}
     log_level = log_level.upper()
@@ -45,6 +53,18 @@ def enqueue_contracts():
     tasks.enqueue_contracts()
     logger.info('Enqueuing new contracts')
     tasks.enqueue_new_contracts()
+
+
+@amoniak.command()
+@click.argument('contracts', nargs=-1)
+def enqueue_contract(contracts):
+    logger = logging.getLogger('amon')
+    if contracts:
+        logger.info('Enqueuing contracts: {}'.format(', '.join(contracts)))
+    else:
+        logger.info('Enqueuing all contracts without etag')
+        contracts = None
+    tasks.enqueue_contracts(contracts)
 
 
 if __name__ == '__main__':
