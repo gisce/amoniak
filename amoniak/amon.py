@@ -92,7 +92,7 @@ class AmonConverter(object):
                     'values': values.get('R')
                 }
             }
-            deviceId = make_uuid('giscedata.lectures.comptador', m['meter_id'])
+            deviceId = make_uuid('giscedata.cups.ps', m['cups'])
             readings = []
             if measurements['A']['values']:
                 readings.append({
@@ -114,7 +114,7 @@ class AmonConverter(object):
                 })
             res[m['resource']].append({
                 'deviceId': deviceId,
-                'meteringPointId': make_uuid('giscedata.cups.ps', m['cups']),
+                'meteringPointId': deviceId,
                 'readings': readings,
                 'measurements': [v for v in measurements.values() if v['values']]
             })
@@ -284,41 +284,6 @@ class AmonConverter(object):
             })
         return res
 
-
-    def device_to_amon(self, device_ids):
-        """Convert a device to AMON.
-
-        {
-            "utilityId": "Utility Id",
-            "externalId": required string UUID,
-            "meteringPointId": required string UUID,
-            "metadata": {
-                "max": "Max number",
-                "serial": "Device serial",
-                "owner": "empresa/client"
-            },
-        }
-        """
-        O = self.O
-        res = []
-        if not hasattr(device_ids, '__iter__'):
-            device_ids = [device_ids]
-        for dev_id in device_ids:
-            dev = O.GiscedataLecturesComptador.browse(dev_id)
-            if dev.propietat == "empresa":
-                dev.propietat = "company"
-            res.append(remove_none({
-                "utilityId": "1",
-                "externalId": make_uuid('giscedata.lectures.comptador', dev_id),
-                "meteringPointId": make_uuid('giscedata.cups.ps', dev.polissa.cups.name),
-                "metadata": {
-                   "max": dev.giro,
-                   "serial": dev.name,
-                   "owner": dev.propietat,
-                }
-            }))
-        return res
-
     def contract_to_amon(self, contract_ids, context=None):
         """Converts contracts to AMON.
 
@@ -390,7 +355,10 @@ class AmonConverter(object):
                 'customer': {
                     'customerId': make_uuid('res.partner', modcon['titular'][0]),
                 },
-                'devices': self.device_to_amon(polissa['comptadors'])
+                'devices': self.device_to_amon(
+                    polissa['comptadors'],
+                    force_serial=make_uuid('giscedata.cups.ps', polissa['cups'][1])
+                )
             }
 
             # Get tertiary power
@@ -403,7 +371,7 @@ class AmonConverter(object):
             res.append(remove_none(contract, context))
         return res
 
-    def device_to_amon(self, device_ids):
+    def device_to_amon(self, device_ids, force_serial=None):
         compt_obj = self.O.GiscedataLecturesComptador
         devices = []
         comptador_fields = ['data_alta', 'data_baixa']
@@ -411,7 +379,7 @@ class AmonConverter(object):
             devices.append({
                 'dateStart': make_utc_timestamp(comptador['data_alta']),
                 'dateEnd': make_utc_timestamp(comptador['data_baixa']),
-                'deviceId': make_uuid('giscedata.lectures.comptador', comptador['id'])
+                'deviceId': force_serial or make_uuid('giscedata.lectures.comptador', comptador['id'])
             })
         return devices
 
