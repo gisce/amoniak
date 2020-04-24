@@ -83,7 +83,7 @@ def enqueue_new_contracts(bucket=500):
             pops = popper.pop(bucket)
 
 
-def enqueue_contracts(contracts=None):
+def enqueue_contracts(contracts=None, force=False):
     O = setup_peek()
     em = setup_empowering_api()
     # Busquem els que hem d'actualitzar
@@ -94,8 +94,14 @@ def enqueue_contracts(contracts=None):
             ('name', 'in', contracts)
         ], context={'active_test': False})
     if not polisses_ids:
+        logger.info('No contracts found')
         return
     fields_to_read = ['name', 'etag', 'comptadors', 'modcontractual_activa']
+    if force:
+        logger.info('Forcing pushing {} contracts'.format(len(polisses_ids)))
+        for polissa_id in polisses_ids:
+            push_contracts.delay([polissa_id])
+        return
     for polissa in O.GiscedataPolissa.read(polisses_ids, fields_to_read):
         modcons = []
         is_new_contract = False
@@ -211,14 +217,19 @@ def push_contracts(contracts_id):
         if not isinstance(contracts_id, (list, tuple)):
             contracts_id = [contracts_id]
         has_etag = bool(O.GiscedataPolissa.fields_get(['etag']))
-        for pol in O.GiscedataPolissa.read(contracts_id, ['modcontractuals_ids', 'name']):
+        for pol in O.GiscedataPolissa.read(contracts_id, ['modcontractuals_ids', 'name', 'etag']):
             cid = pol['id']
             upd = []
             first = True
             for modcon_id in reversed(pol['modcontractuals_ids']):
                 amon_data = amon.contract_to_amon(cid, {'modcon_id': modcon_id})[0]
                 if first:
-                    response = em.contracts().create(amon_data)
+                    if pol['etag']:
+                        response = em.contract(pol['name']).update(
+                            amon_data, pol['etag']
+                        )
+                    else:
+                        response = em.contracts().create(amon_data)
                     first = False
                 else:
                     etag = upd[-1]['_etag']

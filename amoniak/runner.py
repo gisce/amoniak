@@ -40,13 +40,15 @@ def enqueue_all_amon_measures():
 
 
 @amoniak.command()
+@click.option('--force', default=False, is_flag=True)
 @click.argument('contracts', nargs=-1)
-def enqueue_measures(contracts):
+def enqueue_measures(contracts, force):
     logger = logging.getLogger('amon')
+    force_log = force and '(F) ' or ''
     if contracts:
-        logger.info('Enqueuing measures for contracts: {}'.format(', '.join(contracts)))
+        logger.info('{}Enqueuing measures for contracts: {}'.format(force_log, ', '.join(contracts)))
     else:
-        logger.info('Enqueuing all measures with etag')
+        logger.info('{}Enqueuing all measures with etag'.format(force_log))
         contracts = None
     logger.info('Enqueuing measures')
     tasks.enqueue_measures(contracts=contracts)
@@ -62,15 +64,17 @@ def enqueue_contracts():
 
 
 @amoniak.command()
+@click.option('--force', default=False, is_flag=True)
 @click.argument('contracts', nargs=-1)
-def enqueue_contract(contracts):
+def enqueue_contract(contracts, force):
     logger = logging.getLogger('amon')
+    force_log = force and '(F) ' or ''
     if contracts:
-        logger.info('Enqueuing contracts: {}'.format(', '.join(contracts)))
+        logger.info('{}Enqueuing contracts: {}'.format(force_log, ', '.join(contracts)))
     else:
-        logger.info('Enqueuing all contracts without etag')
+        logger.info('{}Enqueuing all contracts without etag'.format(force_log))
         contracts = None
-    tasks.enqueue_contracts(contracts)
+    tasks.enqueue_contracts(contracts, force)
 
 
 if __name__ == '__main__':
