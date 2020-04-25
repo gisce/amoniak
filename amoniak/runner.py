@@ -55,6 +55,19 @@ def enqueue_measures(contracts, force):
 
 
 @amoniak.command()
+@click.argument('contracts', nargs=-1)
+def enqueue_profiles(contracts):
+    logger = logging.getLogger('amon')
+    if contracts:
+        logger.info('Enqueuing measures for contracts: {}'.format(', '.join(contracts)))
+    else:
+        logger.info('Enqueuing all measures with etag')
+        contracts = None
+    logger.info('Enqueuing measures')
+    tasks.enqueue_profiles(contracts=contracts)
+
+
+@amoniak.command()
 def enqueue_contracts():
     logger = logging.getLogger('amon')
     logger.info('Enqueuing updated contracts')

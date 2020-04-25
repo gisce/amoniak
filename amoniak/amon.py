@@ -65,6 +65,33 @@ class AmonConverter(object):
                 CUPS_CACHE[serial] = res
             return res
 
+    def profiles_to_amon(self, profiles):
+        c = self.O
+        result = {}
+        uuids = {}
+        for profile in c.TgCchfact.read(profiles):
+            m_point_id = uuids.get(profile['name'])
+            if not m_point_id:
+                m_point_id = make_uuid('giscedata.cups.ps', profile['name'])
+                uuids[profile['name']] = m_point_id
+            result.setdefault(profile['name'], {
+                "measurements": [],
+                "meteringPointId": m_point_id,
+                "readings": [
+                    {"type": "electricityConsumption", "period": "INSTANT",
+                     "unit": "kWh"},
+                ],
+                "deviceId": m_point_id
+            })
+            result[profile['name']]['measurements'] += [
+                {
+                    "timestamp": make_utc_timestamp(profile['datetime']),
+                    "type": "electricityConsumption",
+                    "value": profile['ai']
+                }
+            ]
+        return result
+
     def aggregated_measures_to_amon(self, measures):
         res = {'R': [], 'T': []}
 

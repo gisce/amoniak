@@ -21,6 +21,46 @@ sentry = Client()
 logger = logging.getLogger('amon')
 
 
+def enqueue_profiles(bucket=500, contracts=None):
+    # First get all the contracts that are in sync
+    c = setup_peek()
+    # TODO: Que fem amb les de baixa? les agafem igualment? només les que
+    # TODO: faci menys de X que estan donades de baixa?
+    search_params = [('etag', '!=', False)]
+    if contracts:
+        search_params.append(('name', 'in', contracts))
+    pids = c.GiscedataPolissa.search(search_params)
+    fields_to_read = ['name', 'cups']
+    for polissa in c.GiscedataPolissa.read(pids, fields_to_read):
+        last_measure = polissa.get('empowering_last_f5d_measure')
+        cups = polissa['cups'][1]
+        if not last_measure:
+            logger.info("Les pugem totes")
+            from_date = (
+                datetime.now() - relativedelta(years=1)
+            ).strftime('%Y-%m-%d 01:00:00')
+            logger.info(u"Pujant un any màxim: %s" % from_date)
+        else:
+            logger.info(u"Última lectura trobada: %s" % last_measure)
+            from_date = last_measure
+        # Use TM also
+        measures = c.TgCchfact.search([
+            ('name', '=', cups),
+            ('datetime', '>=', from_date)
+        ])
+        logger.info("S'han trobat %s mesures per pujar" % (
+            len(measures)
+        ))
+        popper = Popper(measures)
+        pops = popper.pop(bucket)
+        while pops:
+            j = push_amon_profiles.delay(pops)
+            logger.info("Job id:%s | %s/%s/%s" % (
+                j.id, polissa['name'], len(pops), len(popper.items))
+            )
+            pops = popper.pop(bucket)
+
+
 def enqueue_measures(bucket=500, contracts=None):
     # First get all the contracts that are in sync
     c = setup_peek()
@@ -182,6 +222,36 @@ def push_amon_measures(measures):
         stop = datetime.now()
         logger.info('Mesures enviades en %s' % (stop - start))
         logger.info("%s measures creades" % len(measures))
+
+
+@job(setup_queue(name='profiles'), connection=setup_redis(), timeout=3600)
+@sentry.capture_exceptions
+def push_amon_profiles(profiles):
+    """Pugem les mesures a l'Insight Engine
+    """
+    with setup_empowering_api() as em:
+        c = setup_peek()
+        amon = AmonConverter(c)
+        measures_to_push = amon.profiles_to_amon(profiles)
+        for cups, m_to_push in measures_to_push.items():
+            em.amon_measures().create(m_to_push)
+            last_measure = max(
+                make_local_timestamp(x['timestamp'])
+                for x in m_to_push['measurements']
+            )
+            pol_id = c.GiscedataPolissa.search([
+                ('cups.name', '=', cups),
+                ('state', 'not in', ('esborrany', 'validar', 'cancelada')),
+                ('data_alta', '<=', last_measure),
+                '|',
+                ('data_baixa', '>=', last_measure),
+                ('data_baixa', '=', False)
+            ], context={'active_test': False})
+            assert len(pol_id) == 1
+            logger.info('Updating polissa (id: %s) to last measure: %s', pol_id[0], last_measure)
+            c.GiscedataPolissa.write(pol_id, {
+                'empowering_last_profile_measure': last_measure
+            })
 
 
 @job(setup_queue(name='contracts'), connection=setup_redis(), timeout=3600)
