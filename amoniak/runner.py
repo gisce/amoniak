@@ -68,6 +68,19 @@ def enqueue_profiles(contracts):
 
 
 @amoniak.command()
+@click.argument('tariffs', nargs=-1)
+def enqueue_tariffs(tariffs):
+    logger = logging.getLogger('amon')
+    if tariffs:
+        logger.info(
+            'Enqueuing tariffs: {}'.format(', '.join(tariffs)))
+    else:
+        logger.info('Enqueuing all tariffs')
+        tariffs = None
+    tasks.enqueue_tariffs(tariffs)
+
+
+@amoniak.command()
 def enqueue_contracts():
     logger = logging.getLogger('amon')
     logger.info('Enqueuing updated contracts')

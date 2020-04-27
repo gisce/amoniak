@@ -3,6 +3,7 @@
 from __future__ import absolute_import
 from hashlib import sha1
 from copy import deepcopy
+from datetime import datetime
 import json
 import logging
 
@@ -84,16 +85,17 @@ class AmonConverter(object):
                     date_end = max(date_end, v.date_end)
             else:
                 date_end = None
+        price_date = datetime.now().strftime('%Y-%m-%d')
         result = {
             'tariffCostId': pricelist.name,
             'tariffId': tariff['name'],
             'dateStart': date_start and make_utc_timestamp(date_start),
             'dateEnd': date_end and make_utc_timestamp(date_end),
             'powerPrice': c.GiscedataPolissaTarifa.get_periodes_preus(
-                tariff_id, 'tp', pricelist_id
+                tariff_id, 'tp', pricelist_id, {'date': price_date}
             ).values(),
             'energyPrice': c.GiscedataPolissaTarifa.get_periodes_preus(
-                tariff_id, 'te', pricelist_id
+                tariff_id, 'te', pricelist_id, {'date': price_date}
             ).values()
         }
         return result

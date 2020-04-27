@@ -21,6 +21,27 @@ sentry = Client()
 logger = logging.getLogger('amon')
 
 
+def enqueue_tariffs(tariffs=None):
+    c = setup_peek()
+    search_params = []
+    if tariffs:
+        search_params.append(('name', 'in', tariffs))
+    tids = c.ProductPricelist.search(search_params)
+    to_q = []
+    for pricelist in c.ProductPricelist.browse(tids):
+        for tatr in pricelist.tarifes_atr_compatibles:
+            n_polisses = c.GiscedataPolissa.search_count([
+                ('tarifa.id', '=', tatr.id),
+                ('llista_preu.id', '=', pricelist.id),
+                ('etag', '!=', False)
+            ], context={'active_test': False})
+            t = (pricelist.id, tatr.id)
+            if n_polisses and t not in to_q:
+                logger.info('Enqueuing %s - %s', pricelist.name, tatr.name)
+                to_q.append(t)
+                push_tariffs.delay(t)
+
+
 def enqueue_profiles(bucket=500, contracts=None):
     # First get all the contracts that are in sync
     c = setup_peek()
@@ -314,5 +335,18 @@ def push_contracts(contracts_id):
                 O.GiscedataPolissa.write(cid, {'etag': etag})
             else:
                 logger.info("Polissa id: %s no etag found" % (pol['name']))
-            
 
+
+@job(setup_queue(name='tariffs'), connection=setup_redis(), timeout=3600)
+@sentry.capture_exceptions
+def push_tariffs(tariffs):
+    c = setup_peek()
+    a = AmonConverter(c)
+    result = a.tariff_to_amon(*tariffs)
+    with setup_empowering_api() as em:
+        try:
+            print(result)
+            em.tariffs().create(result)
+        except urllib2.HTTPError as err:
+            print(err.read())
+            raise
