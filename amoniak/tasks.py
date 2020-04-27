@@ -44,21 +44,23 @@ def enqueue_profiles(bucket=500, contracts=None):
             logger.info(u"Última lectura trobada: %s" % last_measure)
             from_date = last_measure
         # Use TM also
-        measures = c.TgCchfact.search([
-            ('name', '=', cups),
-            ('datetime', '>=', from_date)
-        ])
-        logger.info("S'han trobat %s mesures per pujar" % (
-            len(measures)
-        ))
-        popper = Popper(measures)
-        pops = popper.pop(bucket)
-        while pops:
-            j = push_amon_profiles.delay(pops)
-            logger.info("Job id:%s | %s/%s/%s" % (
-                j.id, polissa['name'], len(pops), len(popper.items))
-            )
+        for collection in ['tg.cchfact', 'tg.f1']:
+            model = c.model(collection)
+            measures = model.search([
+                ('name', '=', cups),
+                ('datetime', '>=', from_date)
+            ])
+            logger.info("S'han trobat %s mesures (%) per pujar" % (
+                len(measures), collection
+            ))
+            popper = Popper(measures)
             pops = popper.pop(bucket)
+            while pops:
+                j = push_amon_profiles.delay(pops, collection)
+                logger.info("Job id:%s | %s/%s/%s" % (
+                    j.id, polissa['name'], len(pops), len(popper.items))
+                )
+                pops = popper.pop(bucket)
 
 
 def enqueue_measures(bucket=500, contracts=None):
@@ -226,13 +228,13 @@ def push_amon_measures(measures):
 
 @job(setup_queue(name='profiles'), connection=setup_redis(), timeout=3600)
 @sentry.capture_exceptions
-def push_amon_profiles(profiles):
+def push_amon_profiles(profiles, collection):
     """Pugem les mesures a l'Insight Engine
     """
     with setup_empowering_api() as em:
         c = setup_peek()
         amon = AmonConverter(c)
-        measures_to_push = amon.profiles_to_amon(profiles)
+        measures_to_push = amon.profiles_to_amon(profiles, collection)
         for cups, m_to_push in measures_to_push.items():
             em.amon_measures().create(m_to_push)
             last_measure = max(

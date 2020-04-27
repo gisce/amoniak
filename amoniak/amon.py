@@ -65,11 +65,48 @@ class AmonConverter(object):
                 CUPS_CACHE[serial] = res
             return res
 
-    def profiles_to_amon(self, profiles):
+    def tariff_to_amon(self, pricelist_id, tariff_id):
+        c = self.O
+        tariff = c.GiscedataPolissaTarifa.read(tariff_id, ['name'])
+        pricelist = c.ProductPricelist.browse(pricelist_id)
+        date_start = None
+        date_end = None
+        for v in pricelist.version_id:
+            if v.date_start:
+                if not date_start:
+                    date_start = v.date_start
+                else:
+                    date_start = min(date_start, v.date_start)
+            if v.date_end:
+                if not date_end:
+                    date_end = v.date_end
+                else:
+                    date_end = max(date_end, v.date_end)
+            else:
+                date_end = None
+        result = {
+            'tariffCostId': pricelist.name,
+            'tariffId': tariff['name'],
+            'dateStart': date_start and make_utc_timestamp(date_start),
+            'dateEnd': date_end and make_utc_timestamp(date_end),
+            'powerPrice': c.GiscedataPolissaTarifa.get_periodes_preus(
+                tariff_id, 'tp', pricelist_id
+            ).values(),
+            'energyPrice': c.GiscedataPolissaTarifa.get_periodes_preus(
+                tariff_id, 'te', pricelist_id
+            ).values()
+        }
+        return result
+
+
+    def profiles_to_amon(self, profiles, collection='tg.cchfact'):
         c = self.O
         result = {}
+        # TODO: We need a hack to convert meter serial to CUPS uuid
+        # maybe we can have a global uuids cache pre-generated for that
         uuids = {}
-        for profile in c.TgCchfact.read(profiles):
+        model = c.model(collection)
+        for profile in model.read(profiles):
             m_point_id = uuids.get(profile['name'])
             if not m_point_id:
                 m_point_id = make_uuid('giscedata.cups.ps', profile['name'])
