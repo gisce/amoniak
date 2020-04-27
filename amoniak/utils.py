@@ -4,6 +4,8 @@ from functools import partial
 import logging
 import os
 import re
+from datetime import datetime, timedelta
+from copy import deepcopy
 
 from amoniak import VERSION
 from empowering import Empowering
@@ -149,3 +151,29 @@ def setup_logging(logfile=None):
 
 def sorted_by_key(data, key, reverse=False):
     return sorted(data, key=lambda k: k[key], reverse=reverse)
+
+
+def calc_history_id(d, keys):
+    return u'-'.join([unicode(d[k]) for k in keys if k in d])
+
+
+def reduce_history(history, keys):
+    result = []
+    for idx, item in enumerate(deepcopy(sorted_by_key(history, 'dateStart'))):
+        if idx == 0:
+            result.append(item)
+        else:
+            past = result[-1]
+            if calc_history_id(past, keys) != calc_history_id(item, keys):
+                result[-1]['dateEnd'] = (
+                    datetime.strptime(item['dateStart'], '%Y-%m-%dT%H:%M:%SZ')
+                    - timedelta(days=1)
+                ).strftime('%Y-%m-%dT%H:%M:%SZ')
+                result.append(item)
+            else:
+                result[-1]['dateEnd'] = item['dateEnd']
+    return result
+
+
+def is_tertiary(tarifa_atr):
+    return tarifa_atr.startswith('3.') or tarifa_atr.startswith('6.')

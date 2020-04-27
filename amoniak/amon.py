@@ -8,7 +8,7 @@ import json
 import logging
 
 from .cache import CUPS_CACHE, CUPS_UUIDS
-from .utils import recursive_update
+from .utils import recursive_update, reduce_history, is_tertiary
 from empowering.utils import remove_none, make_uuid, make_utc_timestamp
 
 
@@ -394,45 +394,84 @@ class AmonConverter(object):
         if not hasattr(contract_ids, '__iter__'):
             contract_ids = [contract_ids]
         fields_to_read = [
-            'modcontractual_activa', 'name', 'cups', 'comptadors', 'state'
+            'modcontractual_activa', 'name', 'cups', 'comptadors', 'state',
+            'tarifa', 'titular', 'pagador', 'data_alta', 'data_baixa',
+            'llista_preu', 'cnae', 'modcontractuals_ids', 'potencia'
         ]
         for polissa in pol.read(contract_ids, fields_to_read):
             if polissa['state'] in ('esborrany', 'validar'):
                 continue
-            if 'modcon_id' in context:
-                modcon = modcon_obj.read(context['modcon_id'])
-            elif polissa['modcontractual_activa']:
-                modcon = modcon_obj.read(polissa['modcontractual_activa'][0])
-            else:
-                logger.error("Problema amb la polissa %s" % polissa['name'])
-                continue
+            tarifa_atr = polissa['tarifa'][1]
             contract = {
                 'contractId': polissa['name'],
-                'ownerId': make_uuid('res.partner', modcon['titular'][0]),
-                'payerId': make_uuid('res.partner', modcon['pagador'][0]),
-                'signerId': make_uuid('res.partner', modcon['pagador'][0]),
-                'power': int(modcon['potencia'] * 1000),
-                'dateStart': make_utc_timestamp(modcon['data_inici']),
-                'dateEnd': make_utc_timestamp(modcon['data_final']),
-                'tariffId': modcon['tarifa'][1],
-                'tariffCostId': modcon['llista_preu'][1],
-                'version': int(modcon['name']),
-                'activityCode': modcon['cnae'] and modcon['cnae'][1].split(' ')[0] or None,
+                'ownerId': make_uuid('res.partner', polissa['titular'][0]),
+                'payerId': make_uuid('res.partner', polissa['pagador'][0]),
+                'signerId': make_uuid('res.partner', polissa['pagador'][0]),
+                'power': int(polissa['potencia'] * 1000),
+                'dateStart': make_utc_timestamp(polissa['data_alta']),
+                'dateEnd': make_utc_timestamp(polissa['data_baixa']),
+                'tariffId': tarifa_atr,
+                'tariffCostId': polissa['llista_preu'][1],
+                'version': int(polissa['modcontractual_activa'][1]),
+                'activityCode': polissa['cnae'] and polissa['cnae'][1].split(' ')[0] or None,
                 'customer': {
-                    'customerId': make_uuid('res.partner', modcon['titular'][0]),
+                    'customerId': make_uuid('res.partner', polissa['titular'][0]),
                 },
                 'devices': self.device_to_amon(
                     polissa['comptadors'],
                     force_serial=make_uuid('giscedata.cups.ps', polissa['cups'][1])
                 )
             }
+            # History fields
+            history_fields = [
+                ('tariffCostHistory', ['tariffCostId']),
+                ('tariffHistory', ['tariffId']),
+                ('powerHistory', ['power']),
+                ('tertiaryPowerHistory', ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'])
+            ]
+            for k, _ in history_fields:
+                contract[k] = []
+            modcon_fields = [
+                'data_inici', 'data_final', 'llista_preu', 'tarifa', 'potencia'
+            ]
+            for modcon in O.GiscedataPolissaModcontractual.read(polissa['modcontractuals_ids'], modcon_fields):
+                mod_tarifa_atr = modcon['tarifa'][1]
+                contract['tariffCostHistory'].append({
+                    'dateStart': make_utc_timestamp(modcon['data_inici']),
+                    'dateEnd': make_utc_timestamp(modcon['data_final']),
+                    'tariffCostId': modcon['llista_preu'][1]
+                })
+                contract['tariffHistory'].append({
+                    'dateStart': make_utc_timestamp(modcon['data_inici']),
+                    'dateEnd': make_utc_timestamp(modcon['data_final']),
+                    'tariffId': mod_tarifa_atr
+                })
+                if is_tertiary(mod_tarifa_atr):
+                    tertiary_power_history = {
+                        'dateStart': make_utc_timestamp(modcon['data_inici']),
+                        'dateEnd': make_utc_timestamp(modcon['data_final']),
+                    }
+                    for period, power in modcon_obj.get_potencies_dict(modcon['id']).items():
+                        tertiary_power_history[period.lower()] = int(power * 1000)
+                    contract['tertiaryPowerHistory'].append(tertiary_power_history)
+                else:
+                    contract['powerHistory'].append({
+                        'dateStart': make_utc_timestamp(modcon['data_inici']),
+                        'dateEnd': make_utc_timestamp(modcon['data_final']),
+                        'power': int(modcon['potencia'] * 1000)
+                    })
+
+            # Reduce only for this changes
+            for k, f in history_fields:
+                contract[k] = reduce_history(contract[k], f)
 
             # Get tertiary power
-            contract['tertiaryPower'] = {}
-            for period, power in pol.get_potencies_dict(polissa['id']).items():
-                contract['tertiaryPower'][period.lower()] = int(power * 1000)
+            if is_tertiary(tarifa_atr):
+                contract['tertiaryPower'] = {}
+                for period, power in pol.get_potencies_dict(polissa['id']).items():
+                    contract['tertiaryPower'][period.lower()] = int(power * 1000)
 
-            cups = self.cups_to_amon(modcon['cups'][0])
+            cups = self.cups_to_amon(polissa['cups'][0])
             recursive_update(contract, cups)
             res.append(remove_none(contract, context))
         return res
