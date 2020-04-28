@@ -427,7 +427,7 @@ class AmonConverter(object):
                 ('tariffCostHistory', ['tariffCostId']),
                 ('tariffHistory', ['tariffId']),
                 ('powerHistory', ['power']),
-                ('tertiaryPowerHistory', ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'])
+                #('tertiaryPowerHistory', ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'])
             ]
             for k, _ in history_fields:
                 contract[k] = []
@@ -446,7 +446,7 @@ class AmonConverter(object):
                     'dateEnd': make_utc_timestamp(modcon['data_final']),
                     'tariffId': mod_tarifa_atr
                 })
-                if is_tertiary(mod_tarifa_atr):
+                if is_tertiary(mod_tarifa_atr) and False:
                     tertiary_power_history = {
                         'dateStart': make_utc_timestamp(modcon['data_inici']),
                         'dateEnd': make_utc_timestamp(modcon['data_final']),
