@@ -471,6 +471,11 @@ class AmonConverter(object):
                 for period, power in pol.get_potencies_dict(polissa['id']).items():
                     contract['tertiaryPower'][period.lower()] = int(power * 1000)
 
+            # Add custom fields
+            customFields = pol.get_empowering_custom_fields(polissa['id'])
+            if customFields:
+                contract['customFields'] = customFields
+
             cups = self.cups_to_amon(polissa['cups'][0])
             recursive_update(contract, cups)
             res.append(remove_none(contract, context))
