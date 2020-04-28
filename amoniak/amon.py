@@ -508,8 +508,8 @@ class AmonConverter(object):
                     'postalCode': cups['dp']
                 }
             },
-            'experimentalGroupUserTest': 0,
-            'experimentalGroupUser': int(cups.get('empowering', 0))
+            'experimentalGroupUserTest': False,
+            'experimentalGroupUser': bool(cups.get('empowering', 0))
         }
         return res
 
