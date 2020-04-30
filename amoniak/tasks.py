@@ -126,14 +126,14 @@ def enqueue_measures(bucket=500, contracts=None):
             pops = popper.pop(bucket)
 
 
-def enqueue_new_contracts(bucket=500):
+def enqueue_new_contracts(bucket=500, force=False):
     search_params = [
         ('etag', '=', False),
         ('state', 'not in', ('esborrany', 'validar', 'cancelada'))
     ]
     with setup_empowering_api() as em:
         items = em.contracts().get(sort="[('_updated', -1)]")['_items']
-        if items:
+        if items and not force:
             from_date = make_local_timestamp(items[0]['_updated'])
             search_params.append(('create_date', '>', from_date))
         O = setup_peek()

@@ -81,12 +81,13 @@ def enqueue_tariffs(tariffs):
 
 
 @amoniak.command()
-def enqueue_contracts():
+@click.option('--force', default=False, is_flag=True)
+def enqueue_contracts(force):
     logger = logging.getLogger('amon')
     logger.info('Enqueuing updated contracts')
-    tasks.enqueue_contracts()
+    tasks.enqueue_contracts(force=force)
     logger.info('Enqueuing new contracts')
-    tasks.enqueue_new_contracts()
+    tasks.enqueue_new_contracts(force=force)
 
 
 @amoniak.command()
