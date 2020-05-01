@@ -132,10 +132,11 @@ def enqueue_new_contracts(bucket=500, force=False):
         ('state', 'not in', ('esborrany', 'validar', 'cancelada'))
     ]
     with setup_empowering_api() as em:
-        items = em.contracts().get(sort="[('_updated', -1)]")['_items']
-        if items and not force:
-            from_date = make_local_timestamp(items[0]['_updated'])
-            search_params.append(('create_date', '>', from_date))
+        if not force:
+            items = em.contracts().get(sort="[('_updated', -1)]")['_items']
+            if items:
+                from_date = make_local_timestamp(items[0]['_updated'])
+                search_params.append(('create_date', '>', from_date))
         O = setup_peek()
         contracts_ids = O.GiscedataPolissa.search(search_params)
         popper = Popper(contracts_ids)
@@ -309,32 +310,15 @@ def push_contracts(contracts_id):
         amon = AmonConverter(O)
         if not isinstance(contracts_id, (list, tuple)):
             contracts_id = [contracts_id]
-        has_etag = bool(O.GiscedataPolissa.fields_get(['etag']))
-        for pol in O.GiscedataPolissa.read(contracts_id, ['modcontractuals_ids', 'name', 'etag']):
-            cid = pol['id']
-            upd = []
-            first = True
-            for modcon_id in reversed(pol['modcontractuals_ids']):
-                amon_data = amon.contract_to_amon(cid, {'modcon_id': modcon_id})[0]
-                if first:
-                    if pol['etag']:
-                        response = em.contract(pol['name']).update(
-                            amon_data, pol['etag']
-                        )
-                    else:
-                        response = em.contracts().create(amon_data)
-                    first = False
-                else:
-                    etag = upd[-1]['_etag']
-                    response = em.contract(pol['name']).update(amon_data, etag)
-                if check_response(response, amon_data):
-                    upd.append(response)
-            if upd and has_etag:
-                etag = upd[-1]['_etag']
-                logger.info("Polissa id: %s -> etag %s" % (pol['name'], etag))
-                O.GiscedataPolissa.write(cid, {'etag': etag})
+        for pol in O.GiscedataPolissa.read(contracts_id, ['name', 'etag']):
+            amon_data = amon.contract_to_amon(pol['id'])[0]
+            if pol['etag']:
+                response = em.contract(pol['name']).update(
+                    amon_data, pol['etag']
+                )
             else:
-                logger.info("Polissa id: %s no etag found" % (pol['name']))
+                response = em.contracts().create(amon_data)
+            O.GiscedataPolissa.write([pol['id']], {'etag': response['_etag']})
 
 
 @job(setup_queue(name='tariffs'), connection=setup_redis(), timeout=3600)
