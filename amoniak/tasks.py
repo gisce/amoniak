@@ -51,14 +51,14 @@ def enqueue_profiles(bucket=500, contracts=None):
     if contracts:
         search_params.append(('name', 'in', contracts))
     pids = c.GiscedataPolissa.search(search_params)
-    fields_to_read = ['name', 'cups']
+    fields_to_read = ['name', 'cups', 'empowering_last_profile_measure']
     for polissa in c.GiscedataPolissa.read(pids, fields_to_read):
-        last_measure = polissa.get('empowering_last_f5d_measure')
+        last_measure = polissa.get('empowering_last_profile_measure')
         cups = polissa['cups'][1]
         if not last_measure:
             logger.info("Les pugem totes")
             from_date = (
-                datetime.now() - relativedelta(years=1)
+                datetime.now() - relativedelta(years=3)
             ).strftime('%Y-%m-%d 01:00:00')
             logger.info(u"Pujant un any màxim: %s" % from_date)
         else:
@@ -71,9 +71,9 @@ def enqueue_profiles(bucket=500, contracts=None):
                 ('name', '=', cups),
                 ('datetime', '>=', from_date)
             ])
-            logger.info("S'han trobat %s mesures (%) per pujar" % (
+            logger.info("S'han trobat %s mesures (%s) per pujar", 
                 len(measures), collection
-            ))
+            )
             popper = Popper(measures)
             pops = popper.pop(bucket)
             while pops:
@@ -126,25 +126,30 @@ def enqueue_measures(bucket=500, contracts=None):
             pops = popper.pop(bucket)
 
 
-def enqueue_new_contracts(bucket=500, force=False):
+def enqueue_new_contracts(bucket=1, force=False):
     search_params = [
         ('etag', '=', False),
         ('state', 'not in', ('esborrany', 'validar', 'cancelada'))
     ]
-    with setup_empowering_api() as em:
-        if not force:
+    if not force:
+        with setup_empowering_api() as em:
             items = em.contracts().get(sort="[('_updated', -1)]")['_items']
             if items:
                 from_date = make_local_timestamp(items[0]['_updated'])
-                search_params.append(('create_date', '>', from_date))
-        O = setup_peek()
-        contracts_ids = O.GiscedataPolissa.search(search_params)
-        popper = Popper(contracts_ids)
+                search_params += [
+                        '|',
+                        ('create_date', '>', from_date),
+                        ('write_date', '>', from_date)
+                ]
+    O = setup_peek()
+    contracts_ids = O.GiscedataPolissa.search(search_params)
+    logger.info('Found %s contracts to push', len(contracts_ids))
+    popper = Popper(contracts_ids)
+    pops = popper.pop(bucket)
+    while pops:
+        j = push_contracts.delay(pops)
+        logger.info("Job id:%s" % j.id)
         pops = popper.pop(bucket)
-        while pops:
-            j = push_contracts.delay(pops)
-            logger.info("Job id:%s" % j.id)
-            pops = popper.pop(bucket)
 
 
 def enqueue_contracts(contracts=None, force=False):
@@ -217,14 +222,15 @@ def enqueue_contracts(contracts=None, force=False):
 def push_amon_measures(measures):
     """Pugem les mesures a l'Insight Engine
     """
+    logging.basicConfig(level=logging.INFO)
     with setup_empowering_api() as em:
         c = setup_peek()
         amon = AmonConverter(c)
         start = datetime.now()
         measures_to_push = amon.aggregated_measures_to_amon(measures)
         logger.info("Enviant de %s (id:%s) a %s (id:%s)" % (
-            measures[0]['timestamp'], measures[0]['meter_id'],
-            measures[-1]['timestamp'], measures[-1]['meter_id']
+            measures[-1]['timestamp'], measures[-1]['meter_id'],
+            measures[0]['timestamp'], measures[0]['meter_id']
         ))
         stop = datetime.now()
         logger.info('Mesures transformades en %s' % (stop - start))
@@ -239,7 +245,7 @@ def push_amon_measures(measures):
             logger.debug('Pushing %s', residential)
             em.tertiary_amon_measures().create(tertiary)
         # Save last timestamp
-        last_measure = measures[-1]
+        last_measure = measures[0]
         c.GiscedataLecturesComptador.update_empowering_last_measure(
             [last_measure['meter_id']], last_measure['timestamp']
         )
@@ -265,17 +271,22 @@ def push_amon_profiles(profiles, collection):
             )
             pol_id = c.GiscedataPolissa.search([
                 ('cups.name', '=', cups),
-                ('state', 'not in', ('esborrany', 'validar', 'cancelada')),
+                ('state', 'not in', ('esborrany', 'validar', 'cancelada', 'baixa')),
                 ('data_alta', '<=', last_measure),
                 '|',
                 ('data_baixa', '>=', last_measure),
                 ('data_baixa', '=', False)
             ], context={'active_test': False})
-            assert len(pol_id) == 1
-            logger.info('Updating polissa (id: %s) to last measure: %s', pol_id[0], last_measure)
-            c.GiscedataPolissa.write(pol_id, {
-                'empowering_last_profile_measure': last_measure
-            })
+            if not pol_id:
+                continue
+            if len(pol_id) > 1:
+                raise Exception('{} contracts found! CUPS: {}. Last measure: {}'.format(len(pol_id), cups, last_measure))
+            pol = c.GiscedataPolissa.read(pol_id[0], ['name', 'empowering_last_profile_measure'])
+            if last_measure > pol['empowering_last_profile_measure']:
+                logger.info('Updating polissa (id: %s) to last measure: %s', pol['name'], last_measure)
+                c.GiscedataPolissa.write(pol_id, {
+                    'empowering_last_profile_measure': last_measure
+                })
 
 
 @job(setup_queue(name='contracts'), connection=setup_redis(), timeout=3600)
@@ -305,6 +316,8 @@ def push_modcontracts(modcons, etag):
 def push_contracts(contracts_id):
     """Pugem els contractes
     """
+    import logging
+    logging.basicConfig(level=logging.INFO)
     with setup_empowering_api() as em:
         O = setup_peek()
         amon = AmonConverter(O)
@@ -312,12 +325,15 @@ def push_contracts(contracts_id):
             contracts_id = [contracts_id]
         for pol in O.GiscedataPolissa.read(contracts_id, ['name', 'etag']):
             amon_data = amon.contract_to_amon(pol['id'])[0]
-            if pol['etag']:
-                response = em.contract(pol['name']).update(
-                    amon_data, pol['etag']
-                )
-            else:
-                response = em.contracts().create(amon_data)
+            try:
+                if pol['etag']:
+                    response = em.contract(pol['name']).update(
+                        amon_data, pol['etag']
+                    )
+                else:
+                    response = em.contracts().create(amon_data)
+            except urllib2.HTTPError as err:
+                raise Exception('HTTPError code {}. Error: {}'.format(err.code, err.read())) 
             O.GiscedataPolissa.write([pol['id']], {'etag': response['_etag']})
 
 

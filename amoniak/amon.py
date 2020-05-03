@@ -482,6 +482,8 @@ class AmonConverter(object):
         return res
 
     def device_to_amon(self, device_ids, force_serial=None):
+        if not device_ids:
+            return []
         compt_obj = self.O.GiscedataLecturesComptador
         devices = []
         comptador_fields = ['data_alta', 'data_baixa']

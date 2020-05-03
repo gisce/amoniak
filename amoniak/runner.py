@@ -32,12 +32,6 @@ def amoniak(log_level, async):
     logger.info('Running in %s mode' % MODE[async])
     os.environ['RQ_ASYNC'] = str(async)
 
-@amoniak.command()
-def enqueue_all_amon_measures():
-    logger = logging.getLogger('amon')
-    logger.info('Enqueuing all amon measures')
-    tasks.enqueue_all_amon_measures()
-
 
 @amoniak.command()
 @click.option('--force', default=False, is_flag=True)
@@ -82,10 +76,8 @@ def enqueue_tariffs(tariffs):
 
 @amoniak.command()
 @click.option('--force', default=False, is_flag=True)
-def enqueue_contracts(force):
+def enqueue_new_contracts(force):
     logger = logging.getLogger('amon')
-    logger.info('Enqueuing updated contracts')
-    tasks.enqueue_contracts(force=force)
     logger.info('Enqueuing new contracts')
     tasks.enqueue_new_contracts(force=force)
 
