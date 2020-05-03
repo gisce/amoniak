@@ -154,7 +154,6 @@ def enqueue_new_contracts(bucket=1, force=False):
 
 def enqueue_contracts(contracts=None, force=False):
     O = setup_peek()
-    em = setup_empowering_api()
     # Busquem els que hem d'actualitzar
     if contracts is None:
         polisses_ids = O.GiscedataPolissa.search([('etag', '!=', False)])
@@ -175,7 +174,7 @@ def enqueue_contracts(contracts=None, force=False):
         modcons = []
         is_new_contract = False
         try:
-            with em:
+            with setup_empowering_api() as em:
                 last_updated = em.contract(polissa['name']).get()['_updated']
                 last_updated = make_local_timestamp(last_updated)
         except (libsaas.http.HTTPError, urllib2.HTTPError) as e:
