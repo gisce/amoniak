@@ -87,7 +87,9 @@ class AmonConverter(object):
                 date_end = None
         price_date = datetime.now().strftime('%Y-%m-%d')
         result = {
-            'tariffCostId': pricelist.name,
+            'tariffCostId': '{} ({})'.format(
+                pricelist.name, pricelist.currency_id.name
+            ),
             'tariffId': tariff['name'],
             'dateStart': date_start and make_utc_timestamp(date_start),
             'dateEnd': date_end and make_utc_timestamp(date_end),
