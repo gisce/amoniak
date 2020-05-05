@@ -161,7 +161,7 @@ class AmonConverter(object):
                 'P': {
                     'timestamp': make_utc_timestamp(m['timestamp']),
                     'type': m['resource'] == 'R' and 'touPower' or 'tertiaryPower',
-                    'values': values.get('R')
+                    'values': values.get('P')
                 }
             }
             deviceId = make_uuid('giscedata.cups.ps', m['cups'])
