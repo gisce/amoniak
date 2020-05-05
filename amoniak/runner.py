@@ -45,7 +45,7 @@ def enqueue_measures(contracts, force):
         logger.info('{}Enqueuing all measures with etag'.format(force_log))
         contracts = None
     logger.info('Enqueuing measures')
-    tasks.enqueue_measures(contracts=contracts)
+    tasks.enqueue_measures(contracts=contracts, force=force)
 
 
 @amoniak.command()

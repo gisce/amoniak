@@ -84,7 +84,7 @@ def enqueue_profiles(bucket=500, contracts=None):
                 pops = popper.pop(bucket)
 
 
-def enqueue_measures(bucket=500, contracts=None):
+def enqueue_measures(bucket=500, contracts=None, force=False):
     # First get all the contracts that are in sync
     c = setup_peek()
     # TODO: Que fem amb les de baixa? les agafem igualment? només les que
@@ -100,7 +100,7 @@ def enqueue_measures(bucket=500, contracts=None):
     fields_to_read = ['name', 'empowering_last_measure']
     for comptador in c.GiscedataLecturesComptador.read(cids, fields_to_read):
         last_measure = comptador.get('empowering_last_measure')
-        if not last_measure:
+        if not last_measure or force:
             # Pujar totes
             logger.info("Les pugem totes")
             from_date = (
