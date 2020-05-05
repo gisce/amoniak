@@ -14,6 +14,11 @@ from empowering.utils import remove_none, make_uuid, make_utc_timestamp
 
 UNITS = {1: '', 1000: 'k'}
 
+COLLECTION_UNITS = {
+    'tg.cchfact': 'Wh',
+    'tg.f1': 'kWh'
+}
+
 
 logger = logging.getLogger('amon')
 
@@ -102,7 +107,6 @@ class AmonConverter(object):
         }
         return result
 
-
     def profiles_to_amon(self, profiles, collection='tg.cchfact'):
         c = self.O
         result = {}
@@ -120,7 +124,7 @@ class AmonConverter(object):
                 "meteringPointId": m_point_id,
                 "readings": [
                     {"type": "electricityConsumption", "period": "INSTANT",
-                     "unit": "kWh"},
+                     "unit": COLLECTION_UNITS[collection]},
                 ],
                 "deviceId": m_point_id
             })
