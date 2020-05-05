@@ -42,7 +42,7 @@ def enqueue_tariffs(tariffs=None):
                 push_tariffs.delay(t)
 
 
-def enqueue_profiles(bucket=500, contracts=None):
+def enqueue_profiles(bucket=500, contracts=None, force=False):
     # First get all the contracts that are in sync
     c = setup_peek()
     # TODO: Que fem amb les de baixa? les agafem igualment? només les que
@@ -55,7 +55,7 @@ def enqueue_profiles(bucket=500, contracts=None):
     for polissa in c.GiscedataPolissa.read(pids, fields_to_read):
         last_measure = polissa.get('empowering_last_profile_measure')
         cups = polissa['cups'][1]
-        if not last_measure:
+        if not last_measure or force:
             logger.info("Les pugem totes")
             from_date = (
                 datetime.now() - relativedelta(years=3)

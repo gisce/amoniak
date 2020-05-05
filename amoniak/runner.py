@@ -49,16 +49,18 @@ def enqueue_measures(contracts, force):
 
 
 @amoniak.command()
+@click.option('--force', default=False, is_flag=True)
 @click.argument('contracts', nargs=-1)
-def enqueue_profiles(contracts):
+def enqueue_profiles(contracts, force):
     logger = logging.getLogger('amon')
+    force_log = force and '(F) ' or ''
     if contracts:
-        logger.info('Enqueuing measures for contracts: {}'.format(', '.join(contracts)))
+        logger.info('{}Enqueuing profiles for contracts: {}'.format(force_log, ', '.join(contracts)))
     else:
-        logger.info('Enqueuing all measures with etag')
+        logger.info('{}Enqueuing all profiles with etag'.format(force_log))
         contracts = None
     logger.info('Enqueuing measures')
-    tasks.enqueue_profiles(contracts=contracts)
+    tasks.enqueue_profiles(contracts=contracts, force=force)
 
 
 @amoniak.command()
