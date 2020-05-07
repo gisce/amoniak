@@ -470,6 +470,9 @@ class AmonConverter(object):
             # Reduce only for this changes
             for k, f in history_fields:
                 contract[k] = reduce_history(contract[k], f)
+                # Remove historic field if empty
+                if not contract[k]:
+                    contract.pop(k)
 
             # Get tertiary power
             if is_tertiary(tarifa_atr):
