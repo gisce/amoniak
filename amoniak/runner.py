@@ -97,6 +97,12 @@ def enqueue_contract(contracts, force):
         contracts = None
     tasks.enqueue_contracts(contracts, force)
 
+@amoniak.command()
+@click.option('--force', default=False, is_flag=True)
+def enqueue_indexed(force):
+    logger = logging.getLogger('amon')
+    logger.info('Enqueuing indexed data')
+    tasks.enqueue_indexed(force=force)
 
 if __name__ == '__main__':
     amoniak(obj={})
