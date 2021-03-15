@@ -529,6 +529,24 @@ class AmonConverter(object):
         }
         return res
 
+    def indexed_to_amon(self, contract_id):
+        pol_obj = self.O.GiscedataPolissa
+        muni_obj = self.O.ResMunicipi
+        pricelist_obj = self.O.ProductPricelist
+        report_groupeds = dict()
+        pol_ff_read = ['coeficient_d', 'coeficient_k', 'llista_preu']
+        for contract in pol_obj.read(contract_id, pol_ff_read):
+            # Grouped: FEE + llpreus
+            tcost = contract['coeficient_d'] + contract['coeficient_k']
+            llpreus = pricelist_obj.read(contract['llista_preu'][0], ['name'])
+            # Get price FHD on audit data
+            res = {
+                'tariffId': llpreus,
+                'tariffCostId': tcost,
+                'price': float(),
+                'datetime': make_utc_timestamp(datetime.now()),
+            }
+            return res
 
 def check_response(response, amon_data):
     logger.debug('Handlers: %s Class: %s' % (logger.handlers, logger))
