@@ -216,6 +216,12 @@ def enqueue_contracts(contracts=None, force=False):
             push_contracts.delay([polissa['id']])
 
 
+def enqueue_indexed(force=False):
+    O = setup_peek()
+    # Busquem els indexats a actualitzar
+    pass
+
+
 @job(setup_queue(name='measures'), connection=setup_redis(), timeout=3600)
 @sentry.capture_exceptions
 def push_amon_measures(measures):
