@@ -529,24 +529,43 @@ class AmonConverter(object):
         }
         return res
 
-    def indexed_to_amon(self, contract_id):
-        pol_obj = self.O.GiscedataPolissa
-        muni_obj = self.O.ResMunicipi
-        pricelist_obj = self.O.ProductPricelist
-        report_groupeds = dict()
-        pol_ff_read = ['coeficient_d', 'coeficient_k', 'llista_preu']
-        for contract in pol_obj.read(contract_id, pol_ff_read):
-            # Grouped: FEE + llpreus
-            tcost = contract['coeficient_d'] + contract['coeficient_k']
-            llpreus = pricelist_obj.read(contract['llista_preu'][0], ['name'])
-            # Get price FHD on audit data
-            res = {
+    def indexed_to_amon(self, indexed_group_data):
+        """
+        indexed_group_data: tuple like (pricelist, cost, fact_ids)
+        One grouped indexed to amon
+        """
+        # One grouped indexed to amon
+        from base64 import b64decode
+        import pandas as pd
+        from StringIO import StringIO
+        attach_obj = self.O.irAttachment
+        llpreus = indexed_group_data[0]
+        tcost = indexed_group_data[1]
+        df_grouped = pd.DataFrame({})
+        res = []
+        for fact_id in indexed_group_data[2]:
+            att_id = attach_obj.search([
+                ('res_model', '=', 'giscedata.facturacio.factura'),
+                ('res_id', '=', fact_id),
+                ('name', '=like', 'PHF_%'),
+            ])
+            audit_data = attach_obj.read(att_id[0], ['datas'])['datas']
+            audit_data = b64decode(audit_data)
+            df = pd.read_csv(StringIO(audit_data), sep=';', names=['timestamp', 'price', 'n', 's'])
+            df = df[['timestamp', 'price']]
+            if df_grouped.empty:
+                df_grouped = df.copy()
+            else:
+                df_grouped = pd.concat([df_grouped, df])
+        df_grouped = df_grouped.groupby('timestamp').median().reset_index()
+        for ts_indexed_median in df_grouped.T.to_dict().values():
+            res.append({
                 'tariffId': llpreus,
                 'tariffCostId': tcost,
-                'price': float(),
-                'datetime': make_utc_timestamp(datetime.now()),
-            }
-            return res
+                'price': ts_indexed_median['price'],
+                'datetime': make_utc_timestamp(ts_indexed_median['timestamp']),
+            })
+        return res
 
 def check_response(response, amon_data):
     logger.debug('Handlers: %s Class: %s' % (logger.handlers, logger))
