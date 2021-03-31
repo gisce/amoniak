@@ -216,11 +216,28 @@ def enqueue_contracts(contracts=None, force=False):
             push_contracts.delay([polissa['id']])
 
 
-def enqueue_indexed(force=False):
+def enqueue_indexed(bucket=1, force=False):
+    # SEARCH all indexed groups
+    # SEARCH this groups on empowering grouped indexed
     O = setup_peek()
-    # Busquem els indexats a actualitzar
-    pass
-
+    indexed_grouppeds = {}
+    pids = O.GiscedataPolissa.search([('llista_preu', '=', 'index')])
+    for pol in O.GiscedataPolissa.read(pids, ['llista_preu', 'coeficient_d', 'coeficient_k', 'name']):
+        fee = pol['coeficient_d'] + pol['coeficient_k']
+        llprice = pol['llista_preu'][1]
+        key = '{} {}'.format(llprice, fee)
+        if key not in indexed_grouppeds:
+            indexed_grouppeds[key] = [pol['id']]
+        else:
+            indexed_grouppeds[key].append(pol['id'])
+    for group_key, contracts in indexed_grouppeds.values():
+        # Search last indexed publish date
+        logger.info('Found %s indexed group to push', group_key)
+        for pol_id in contracts:
+            fact_ids = O.GiscedataFacturacioFactura.search([
+                ('polissa_id', '=', pol_id), ('data_inici', '=', '2021-01-01'), ('type', '=', 'out_invoice')
+            ])
+        push_indexeds.delay(group_key)
 
 @job(setup_queue(name='measures'), connection=setup_redis(), timeout=3600)
 @sentry.capture_exceptions
@@ -352,6 +369,20 @@ def push_tariffs(tariffs):
         try:
             print(result)
             em.tariffs().create(result)
+        except urllib2.HTTPError as err:
+            print(err.read())
+            raise
+
+@job(setup_queue(name='indexeds'), connection=setup_redis(), timeout=3600)
+@sentry.capture_exceptions
+def push_indexeds(indexeds):
+    c = setup_peek()
+    a = AmonConverter(c)
+    result = a.indexed_to_amon(*indexeds)
+    with setup_empowering_api() as em:
+        try:
+            print(result)
+            #em.indexeds().create(result)
         except urllib2.HTTPError as err:
             print(err.read())
             raise
