@@ -233,11 +233,14 @@ def enqueue_indexed(bucket=1, force=False):
     for group_key, contracts in indexed_grouppeds.items():
         # Search last indexed publish date
         logger.info('Found %s indexed group to push', group_key)
+        fact_ids = []
         for pol_id in contracts:
-            fact_ids = O.GiscedataFacturacioFactura.search([
+            fact_ids += O.GiscedataFacturacioFactura.search([
                 ('polissa_id', '=', pol_id), ('data_inici', '=', '2021-01-01'), ('type', '=', 'out_invoice')
             ])
-        push_indexeds.delay(group_key)
+        if fact_ids:
+            logger.info('Pushing %s indexed group with #facts %s', group_key, len(fact_ids))
+            push_indexeds.delay((group_key, fact_ids))
 
 @job(setup_queue(name='measures'), connection=setup_redis(), timeout=3600)
 @sentry.capture_exceptions
