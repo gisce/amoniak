@@ -221,7 +221,7 @@ def enqueue_indexed(bucket=1, force=False):
     # SEARCH this groups on empowering grouped indexed
     O = setup_peek()
     indexed_grouppeds = {}
-    pids = O.GiscedataPolissa.search([('llista_preu', '=', 'index')])
+    pids = O.GiscedataPolissa.search([('mode_facturacio', '=', 'index')])
     for pol in O.GiscedataPolissa.read(pids, ['llista_preu', 'coeficient_d', 'coeficient_k', 'name']):
         fee = pol['coeficient_d'] + pol['coeficient_k']
         llprice = pol['llista_preu'][1]
@@ -230,7 +230,7 @@ def enqueue_indexed(bucket=1, force=False):
             indexed_grouppeds[key] = [pol['id']]
         else:
             indexed_grouppeds[key].append(pol['id'])
-    for group_key, contracts in indexed_grouppeds.values():
+    for group_key, contracts in indexed_grouppeds.items():
         # Search last indexed publish date
         logger.info('Found %s indexed group to push', group_key)
         for pol_id in contracts:
