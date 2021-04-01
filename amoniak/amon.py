@@ -529,9 +529,10 @@ class AmonConverter(object):
         }
         return res
 
-    def indexed_to_amon(self, indexed_group_data):
+    def indexed_to_amon(self, indexed_group, fact_ids):
         """
-        indexed_group_data: tuple like (pricelist, cost, fact_ids)
+        indexed_group:  pricelist, cost
+        fact_ids: list of invoice ids
         One grouped indexed to amon
         """
         # One grouped indexed to amon
@@ -539,11 +540,10 @@ class AmonConverter(object):
         import pandas as pd
         from StringIO import StringIO
         attach_obj = self.O.irAttachment
-        llpreus = indexed_group_data[0]
-        tcost = indexed_group_data[1]
+        llpreus, tcost = indexed_group.split('#')
         df_grouped = pd.DataFrame({})
         res = []
-        for fact_id in indexed_group_data[2]:
+        for fact_id in fact_ids:
             att_id = attach_obj.search([
                 ('res_model', '=', 'giscedata.facturacio.factura'),
                 ('res_id', '=', fact_id),
@@ -559,11 +559,13 @@ class AmonConverter(object):
                 df_grouped = pd.concat([df_grouped, df])
         df_grouped = df_grouped.groupby('timestamp').median().reset_index()
         for ts_indexed_median in df_grouped.T.to_dict().values():
+            # todo: convert ts_indexed_median['timestamp'] to datetime
             res.append({
                 'tariffId': llpreus,
                 'tariffCostId': tcost,
                 'price': ts_indexed_median['price'],
-                'datetime': make_utc_timestamp(ts_indexed_median['timestamp']),
+                'datetime': ts_indexed_median['timestamp'],
+                #'datetime': make_utc_timestamp(ts_indexed_median['timestamp']),
             })
         return res
 
