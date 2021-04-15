@@ -232,11 +232,22 @@ def enqueue_indexed(bucket=1, force=False):
             indexed_grouppeds[key].append(pol['id'])
     for group_key, contracts in indexed_grouppeds.items():
         # Search last indexed publish date
+        tariff_id, cost = group_key
+        pindexed_id = o.EmpoweringPriceIndexed(
+            search([('tariff_id', '=', str(tariff_id)), ('cost', '=', int(cost))])
+        )
+        if pindexed_id:
+            ldate = o.EmpoweringPriceIndexed.read(
+                pindexed_id[0], ['empowering_price_indexed_last_push']
+            )['empowering_price_indexed_last_push']
+        else:
+            dta = datetime.now()
+            ldate = '{}-{}-01'.format(dta.year, dta.month)
         logger.info('Found %s indexed group to push', group_key)
         fact_ids = []
         for pol_id in contracts:
             fact_ids += O.GiscedataFacturacioFactura.search([
-                ('polissa_id', '=', pol_id), ('data_inici', '=', '2021-01-01'), ('type', '=', 'out_invoice')
+                ('polissa_id', '=', pol_id), ('data_inici', '>=', ldate), ('type', '=', 'out_invoice')
             ])
         if fact_ids:
             logger.info('Pushing %s indexed group with #facts %s', group_key, len(fact_ids))
