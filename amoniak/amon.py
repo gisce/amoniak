@@ -49,11 +49,12 @@ def get_street_name(cups):
     street_name = ', '.join(street)
     return street_name
 
+
 def map_datetime(raw_timestamp):
     date, nhour = raw_timestamp.split(' ')
-    date = datetime.strptime(date, '%Y-%m-%d')
-    current_date = make_local_timestamp(date)
+    current_date = TZ.localize(datetime.strptime(date, '%Y-%m-%d'))
     return TZ.normalize(current_date + timedelta(hours=int(nhour)))
+
 
 class AmonConverter(object):
     def __init__(self, connection):
@@ -565,7 +566,7 @@ class AmonConverter(object):
             else:
                 df_grouped = pd.concat([df_grouped, df])
         df_grouped = df_grouped.groupby('timestamp').median().reset_index()
-        df_grouped['timestamp'] = df_grouped['timestamp'].apply(lamda x: map_datetime(x))
+        df_grouped['timestamp'] = df_grouped['timestamp'].apply(lambda x: map_datetime(x))
         for ts_indexed_median in df_grouped.T.to_dict().values():
             res.append({
                 'tariffId': llpreus,

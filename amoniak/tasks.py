@@ -234,17 +234,17 @@ def enqueue_indexed(bucket=1, force=False):
     for group_key, contracts in indexed_grouppeds.items():
         # Search last indexed publish date
         tariff_id, cost = group_key
-        pindexed_id = o.EmpoweringPriceIndexed(
+        pindexed_id = O.EmpoweringPriceIndexed(
             search([('tariff_id', '=', str(tariff_id)), ('cost', '=', int(cost))])
         )
         if pindexed_id:
-            ldate = o.EmpoweringPriceIndexed.read(
+            ldate = O.EmpoweringPriceIndexed.read(
                 pindexed_id[0], ['empowering_price_indexed_last_push']
             )['empowering_price_indexed_last_push']
         else:
             # todo: if not exists, which date??
             dta = datetime.now()
-            ldate = '{}-{}-01'.format(dta.year, dta.month)
+            ldate = '{}-{}-01'.format(dta.year, str(dta.month).zfill(2))
         logger.info('Found %s indexed group to push from %s', group_key, ldate)
         fact_ids = []
         for pol_id in contracts:
