@@ -217,8 +217,9 @@ def enqueue_contracts(contracts=None, force=False):
 
 
 def enqueue_indexed(bucket=1, force=False):
-    # SEARCH all indexed groups
-    # SEARCH this groups on empowering grouped indexed
+    """Busquem els grups indexats formats per llista preu + FEE
+    Recuperem l'ultima data publicada per saber d'es d'on pujar
+    """
     O = setup_peek()
     indexed_grouppeds = {}
     pids = O.GiscedataPolissa.search([('mode_facturacio', '=', 'index')])
@@ -241,9 +242,10 @@ def enqueue_indexed(bucket=1, force=False):
                 pindexed_id[0], ['empowering_price_indexed_last_push']
             )['empowering_price_indexed_last_push']
         else:
+            # todo: if not exists, which date??
             dta = datetime.now()
             ldate = '{}-{}-01'.format(dta.year, dta.month)
-        logger.info('Found %s indexed group to push', group_key)
+        logger.info('Found %s indexed group to push from %s', group_key, ldate)
         fact_ids = []
         for pol_id in contracts:
             fact_ids += O.GiscedataFacturacioFactura.search([

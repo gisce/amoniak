@@ -3,7 +3,8 @@
 from __future__ import absolute_import
 from hashlib import sha1
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timedelta
+from pytz import timezone
 import json
 import logging
 
@@ -19,6 +20,7 @@ COLLECTION_UNITS = {
     'tg.f1': 'kWh'
 }
 
+TZ = timezone('Europe/Madrid')
 
 logger = logging.getLogger('amon')
 
@@ -47,6 +49,11 @@ def get_street_name(cups):
     street_name = ', '.join(street)
     return street_name
 
+def map_datetime(raw_timestamp):
+    date, nhour = raw_timestamp.split(' ')
+    date = datetime.strptime(date, '%Y-%m-%d')
+    current_date = make_local_timestamp(date)
+    return TZ.normalize(current_date + timedelta(hours=int(nhour)))
 
 class AmonConverter(object):
     def __init__(self, connection):
@@ -558,14 +565,13 @@ class AmonConverter(object):
             else:
                 df_grouped = pd.concat([df_grouped, df])
         df_grouped = df_grouped.groupby('timestamp').median().reset_index()
+        df_grouped['timestamp'] = df_grouped['timestamp'].apply(lamda x: map_datetime(x))
         for ts_indexed_median in df_grouped.T.to_dict().values():
-            # todo: convert ts_indexed_median['timestamp'] to datetime
             res.append({
                 'tariffId': llpreus,
                 'tariffCostId': tcost,
                 'price': ts_indexed_median['price'],
                 'datetime': ts_indexed_median['timestamp'],
-                #'datetime': make_utc_timestamp(ts_indexed_median['timestamp']),
             })
         return res
 
