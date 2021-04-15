@@ -53,7 +53,9 @@ def get_street_name(cups):
 def map_datetime(raw_timestamp):
     date, nhour = raw_timestamp.split(' ')
     current_date = TZ.localize(datetime.strptime(date, '%Y-%m-%d'))
-    return TZ.normalize(current_date + timedelta(hours=int(nhour)))
+    current_date = TZ.normalize(current_date + timedelta(hours=int(nhour)))
+    return make_utc_timestamp(datetime.fromtimestamp(current_date.timestamp()))
+
 
 
 class AmonConverter(object):
@@ -569,8 +571,8 @@ class AmonConverter(object):
         df_grouped['timestamp'] = df_grouped['timestamp'].apply(lambda x: map_datetime(x))
         for ts_indexed_median in df_grouped.T.to_dict().values():
             res.append({
-                'tariffId': llpreus,
-                'tariffCostId': tcost,
+                'tariffId': str(llpreus),
+                'tariffCostId': str(tcost),
                 'price': ts_indexed_median['price'],
                 'datetime': ts_indexed_median['timestamp'],
             })

@@ -398,9 +398,27 @@ def push_indexeds(indexeds):
     with setup_empowering_api() as em:
         try:
             print(result)
-            response = em.indexeds().create(result)
-            # todo: set last empowering_price_indexed_last_push
-            #c.EmpoweringPriceIndexed.read(pindexed_id, {'empowering_price_indexed_last_push': ldate})
+            response = em.price_indexed().create(result)
+            if response['_status'] == 'OK':
+                etag = response['_etag']
+                tid = result[0]['tariffId']
+                cid = result[0]['cost']
+                epid = c.EmpoweringPriceIndexed.search([
+                    ('tariffId', '=', tid), ('tariffCostId', '=', cid)
+                ])
+                ldate = max([x.datetime for x in result])
+                if epid:
+                    c.EmpoweringPriceIndexed.write(epid, {
+                        'empowering_price_indexed_last_push': ldate,
+                        'etag': etag
+                    })
+                else:
+                    c.EmpoweringPriceIndexed.create({
+                        'tariffId': tid,
+                        'tariffCostId': cid,
+                        'empowering_price_indexed_last_push': ldate,
+                        'etag': etag
+                    })
         except urllib2.HTTPError as err:
             print(err.read())
             raise
