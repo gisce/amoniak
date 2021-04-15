@@ -225,7 +225,7 @@ def enqueue_indexed(bucket=1, force=False):
     for pol in O.GiscedataPolissa.read(pids, ['llista_preu', 'coeficient_d', 'coeficient_k', 'name']):
         fee = pol['coeficient_d'] + pol['coeficient_k']
         llprice = pol['llista_preu'][1]
-        key = '{}#{}'.format(llprice, fee)
+        key = (llprice, fee)
         if key not in indexed_grouppeds:
             indexed_grouppeds[key] = [pol['id']]
         else:

@@ -540,7 +540,7 @@ class AmonConverter(object):
         import pandas as pd
         from StringIO import StringIO
         attach_obj = self.O.irAttachment
-        llpreus, tcost = indexed_group.split('#')
+        llpreus, tcost = indexed_group
         df_grouped = pd.DataFrame({})
         res = []
         for fact_id in fact_ids:
