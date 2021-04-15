@@ -396,7 +396,9 @@ def push_indexeds(indexeds):
     with setup_empowering_api() as em:
         try:
             print(result)
-            em.indexeds().create(result)
+            response = em.indexeds().create(result)
+            # todo: set last empowering_price_indexed_last_push
+            #c.EmpoweringPriceIndexed.read(pindexed_id, {'empowering_price_indexed_last_push': ldate})
         except urllib2.HTTPError as err:
             print(err.read())
             raise
