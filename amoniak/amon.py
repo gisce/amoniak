@@ -550,7 +550,7 @@ class AmonConverter(object):
         import pandas as pd
         from StringIO import StringIO
         attach_obj = self.O.irAttachment
-        llpreus, tcost = indexed_group
+        tariff, tcost = indexed_group
         df_grouped = pd.DataFrame({})
         res = []
         for fact_id in fact_ids:
@@ -561,7 +561,7 @@ class AmonConverter(object):
             ])
             audit_data = attach_obj.read(att_id[0], ['datas'])['datas']
             audit_data = b64decode(audit_data)
-            df = pd.read_csv(StringIO(audit_data), sep=';', names=['timestamp', 'price', 'n', 's'])
+            df = pd.read_csv(StringIO(audit_data), sep=';', names=['timestamp', 'price', 'raw', 'trash'])
             df = df[['timestamp', 'price']]
             if df_grouped.empty:
                 df_grouped = df.copy()
@@ -571,7 +571,7 @@ class AmonConverter(object):
         df_grouped['timestamp'] = df_grouped['timestamp'].apply(lambda x: map_datetime(x))
         for ts_indexed_median in df_grouped.T.to_dict().values():
             res.append({
-                'tariffId': str(llpreus),
+                'tariffId': str(tariff),
                 'tariffCostId': str(tcost),
                 'price': ts_indexed_median['price'],
                 'datetime': ts_indexed_median['timestamp'],
