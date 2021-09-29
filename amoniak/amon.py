@@ -54,7 +54,7 @@ def map_datetime(raw_timestamp):
     date, nhour = raw_timestamp.split(' ')
     current_date = TZ.localize(datetime.strptime(date, '%Y-%m-%d'))
     current_date = TZ.normalize(current_date + timedelta(hours=int(nhour)))
-    return make_utc_timestamp(datetime.fromtimestamp(current_date.timestamp()))
+    return make_utc_timestamp(current_date)
 
 
 
@@ -557,8 +557,10 @@ class AmonConverter(object):
             att_id = attach_obj.search([
                 ('res_model', '=', 'giscedata.facturacio.factura'),
                 ('res_id', '=', fact_id),
-                ('name', '=like', 'PHF_%'),
+                ('name', '=like', 'PH_%'),
             ])
+            if not att_id:
+                continue
             audit_data = attach_obj.read(att_id[0], ['datas'])['datas']
             audit_data = b64decode(audit_data)
             df = pd.read_csv(StringIO(audit_data), sep=';', names=['timestamp', 'price', 'raw', 'trash'])
@@ -567,6 +569,8 @@ class AmonConverter(object):
                 df_grouped = df.copy()
             else:
                 df_grouped = pd.concat([df_grouped, df])
+        if df_grouped.empty:
+            return res
         df_grouped = df_grouped.groupby('timestamp').median().reset_index()
         df_grouped['timestamp'] = df_grouped['timestamp'].apply(lambda x: map_datetime(x))
         for ts_indexed_median in df_grouped.T.to_dict().values():
