@@ -216,6 +216,46 @@ def enqueue_contracts(contracts=None, force=False):
             push_contracts.delay([polissa['id']])
 
 
+def enqueue_indexed(bucket=1, force=False):
+    """Busquem els grups indexats formats per llista preu + FEE
+    Recuperem l'ultima data publicada per saber d'es d'on pujar
+    """
+    O = setup_peek()
+    indexed_grouppeds = {}
+    pids = O.GiscedataPolissa.search([('mode_facturacio', '=', 'index')])
+    for pol in O.GiscedataPolissa.read(pids, ['llista_preu', 'coeficient_d', 'coeficient_k', 'name', 'tarifa']):
+        fee = pol['coeficient_d'] + pol['coeficient_k']
+        llprice = pol['llista_preu'][1]
+        tarifa = pol['tarifa'][1]
+        key = (tarifa, '{} - {}'.format(llprice, fee))
+        if key not in indexed_grouppeds:
+            indexed_grouppeds[key] = [pol['id']]
+        else:
+            indexed_grouppeds[key].append(pol['id'])
+    for group_key, contracts in indexed_grouppeds.items():
+        # Search last indexed publish date
+        tariff_id, cost = group_key
+        pindexed_id = O.EmpoweringPriceIndexed(
+            search([('tariff_id', '=', str(tariff_id)), ('cost', '=', int(cost))])
+        )
+        if pindexed_id:
+            ldate = O.EmpoweringPriceIndexed.read(
+                pindexed_id[0], ['empowering_price_indexed_last_push']
+            )['empowering_price_indexed_last_push']
+        else:
+            # todo: if not exists, which date??
+            dta = datetime.now()
+            ldate = '{}-{}-01'.format(dta.year, str(dta.month).zfill(2))
+        logger.info('Found %s indexed group to push from %s', group_key, ldate)
+        fact_ids = []
+        for pol_id in contracts:
+            fact_ids += O.GiscedataFacturacioFactura.search([
+                ('polissa_id', '=', pol_id), ('data_inici', '>=', ldate), ('type', '=', 'out_invoice')
+            ])
+        if fact_ids:
+            logger.info('Pushing %s indexed group with #facts %s', group_key, len(fact_ids))
+            push_indexeds.delay((group_key, fact_ids))
+
 @job(setup_queue(name='measures'), connection=setup_redis(), timeout=3600)
 @sentry.capture_exceptions
 def push_amon_measures(measures):
@@ -346,6 +386,40 @@ def push_tariffs(tariffs):
         try:
             print(result)
             em.tariffs().create(result)
+        except urllib2.HTTPError as err:
+            print(err.read())
+            raise
+
+@job(setup_queue(name='indexeds'), connection=setup_redis(), timeout=3600)
+@sentry.capture_exceptions
+def push_indexeds(indexeds):
+    c = setup_peek()
+    a = AmonConverter(c)
+    result = a.indexed_to_amon(*indexeds)
+    with setup_empowering_api() as em:
+        try:
+            print(result)
+            response = em.price_indexed().create(result)
+            if response['_status'] == 'OK':
+                etag = response['_etag']
+                tid = result[0]['tariffId']
+                cid = result[0]['cost']
+                epid = c.EmpoweringPriceIndexed.search([
+                    ('tariffId', '=', tid), ('tariffCostId', '=', cid)
+                ])
+                ldate = max([x.datetime for x in result])
+                if epid:
+                    c.EmpoweringPriceIndexed.write(epid, {
+                        'empowering_price_indexed_last_push': ldate,
+                        'etag': etag
+                    })
+                else:
+                    c.EmpoweringPriceIndexed.create({
+                        'tariffId': tid,
+                        'tariffCostId': cid,
+                        'empowering_price_indexed_last_push': ldate,
+                        'etag': etag
+                    })
         except urllib2.HTTPError as err:
             print(err.read())
             raise

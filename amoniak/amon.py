@@ -3,7 +3,8 @@
 from __future__ import absolute_import
 from hashlib import sha1
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timedelta
+from pytz import timezone
 import json
 import logging
 
@@ -19,6 +20,7 @@ COLLECTION_UNITS = {
     'tg.f1': 'kWh'
 }
 
+TZ = timezone('Europe/Madrid')
 
 logger = logging.getLogger('amon')
 
@@ -46,6 +48,14 @@ def get_street_name(cups):
                 street.append(u'%s %s' % (f_name, val))
     street_name = ', '.join(street)
     return street_name
+
+
+def map_datetime(raw_timestamp):
+    date, nhour = raw_timestamp.split(' ')
+    current_date = TZ.localize(datetime.strptime(date, '%Y-%m-%d'))
+    current_date = TZ.normalize(current_date + timedelta(hours=int(nhour)))
+    return make_utc_timestamp(current_date)
+
 
 
 class AmonConverter(object):
@@ -529,6 +539,48 @@ class AmonConverter(object):
         }
         return res
 
+    def indexed_to_amon(self, indexed_group, fact_ids):
+        """
+        indexed_group:  pricelist, cost
+        fact_ids: list of invoice ids
+        One grouped indexed to amon
+        """
+        # One grouped indexed to amon
+        from base64 import b64decode
+        import pandas as pd
+        from StringIO import StringIO
+        attach_obj = self.O.irAttachment
+        tariff, tcost = indexed_group
+        df_grouped = pd.DataFrame({})
+        res = []
+        for fact_id in fact_ids:
+            att_id = attach_obj.search([
+                ('res_model', '=', 'giscedata.facturacio.factura'),
+                ('res_id', '=', fact_id),
+                ('name', '=like', 'PH_%'),
+            ])
+            if not att_id:
+                continue
+            audit_data = attach_obj.read(att_id[0], ['datas'])['datas']
+            audit_data = b64decode(audit_data)
+            df = pd.read_csv(StringIO(audit_data), sep=';', names=['timestamp', 'price', 'raw', 'trash'])
+            df = df[['timestamp', 'price']]
+            if df_grouped.empty:
+                df_grouped = df.copy()
+            else:
+                df_grouped = pd.concat([df_grouped, df])
+        if df_grouped.empty:
+            return res
+        df_grouped = df_grouped.groupby('timestamp').median().reset_index()
+        df_grouped['timestamp'] = df_grouped['timestamp'].apply(lambda x: map_datetime(x))
+        for ts_indexed_median in df_grouped.T.to_dict().values():
+            res.append({
+                'tariffId': str(tariff),
+                'tariffCostId': str(tcost),
+                'price': ts_indexed_median['price'],
+                'datetime': ts_indexed_median['timestamp'],
+            })
+        return res
 
 def check_response(response, amon_data):
     logger.debug('Handlers: %s Class: %s' % (logger.handlers, logger))
