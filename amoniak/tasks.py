@@ -250,11 +250,20 @@ def enqueue_indexed(bucket=1, force=False, wreport=False):
             )['empowering_price_indexed_last_push']
             logger.info('Grup indexats %s, pujem desde ultima data %s', group_key, ldate)
         else:
-            # todo: if not exists, which date??
-            dta = datetime.now()
-            ldate = '{}-{}-01'.format(dta.year, str(dta.month).zfill(2))
-        logger.info('Found %s indexed group to push from %s', group_key, ldate)
+            # Si no hem pujat mai l'agrupacio, busquem el minim per di lectura factura
+            ffids = O.GiscedataFacturacioFactura.search([
+                ('polissa_id', 'in', contracts),
+                ('type', '=', 'out_invoice'),
+                ('llista_preu.name', '=like', '%ndex%')
+            ])
+            if ffids:
+                ldate = min([x['data_inici'] for x in O.GiscedataFacturacioFactura.read(ffids, ['data_inici'])])
+            else:
+                # Agrupacio encara sense factures o contractes en esborrany
+                continue
+            logger.info('Grup indexats %s NO PUJAT MAI ENCARA, pujem desde primera factura %s', group_key, ldate)
         fact_ids = []
+        ldate = ldate[:10]
         for pol_id in contracts:
             fact_ids += O.GiscedataFacturacioFactura.search([
                 ('polissa_id', '=', pol_id),
@@ -263,8 +272,16 @@ def enqueue_indexed(bucket=1, force=False, wreport=False):
                 ('llista_preu.name', '=like', '%ndex%')
             ])
         if fact_ids:
-            logger.info('Pushing %s indexed group with #facts %s', group_key, len(fact_ids))
-            push_indexeds.delay((group_key, fact_ids))
+            logger.info('Pujant %s grup indexats amb #facts %s', group_key, len(fact_ids))
+            r = push_indexeds.delay((group_key, fact_ids))
+            if wreport:
+                at, ak = group_key
+                ak = ak.replace(' - ', '')
+                if not r:
+                    continue
+                df = pd.DataFrame(data=r)
+                df.to_excel(writer, sheet_name='{}{}'.format(at, ak))
+    writer.save()
 
 @job(setup_queue(name='measures'), connection=setup_redis(), timeout=3600)
 @sentry.capture_exceptions
