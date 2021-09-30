@@ -280,7 +280,8 @@ def enqueue_indexed(bucket=1, force=False, wreport=False):
                 ak = ak.replace(' - ', '')
                 if not r:
                     continue
-                df = pd.DataFrame(data=r)
+                #todo: get price from responses
+                df = pd.DataFrame(eval(r))
                 df.to_excel(writer, sheet_name='{}{}'.format(at, ak))
     if wreport:
         logger.info('Report guardat: %s', report_name)
@@ -432,7 +433,9 @@ def push_indexeds(indexeds):
         try:
             response = em.price_indexed().create(result)
             if response['_status'] == 'OK':
-                logger.info('Grup indexats PUJAT CORRECTAMENT! %s', response)
+                msg_ok = 'Grup indexats PUJAT CORRECTAMENT! %s', response
+                print(msg_ok)
+                logger.info(msg_ok)
                 # If a list is POSTed it will return an ordered list with documents
                 # with eve fields added
                 for item in response['_items']:
