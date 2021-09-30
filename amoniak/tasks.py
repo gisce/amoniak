@@ -216,13 +216,19 @@ def enqueue_contracts(contracts=None, force=False):
             push_contracts.delay([polissa['id']])
 
 
-def enqueue_indexed(bucket=1, force=False):
-    """Busquem els grups indexats formats per llista preu + FEE
+def enqueue_indexed(bucket=1, force=False, wreport=False):
+    """Busquem els grups indexats formats per llista preu + FEE que coincideixin
     Recuperem l'ultima data publicada per saber d'es d'on pujar
+    Si l'agrupació no s'ha pujat mai, busquem factures i pujem desde la data més petita
+    force = True: Força pujada
+    wreport = True: Crea un report al director /tmp amb els preus mitjos horaris per agrupació
     """
     O = setup_peek()
     indexed_grouppeds = {}
     pids = O.GiscedataPolissa.search([('mode_facturacio', '=', 'index')])
+    if wreport:
+        import pandas as pd
+        writer = pd.ExcelWriter('/tmp/beedata_indexed_{}.xlsx'.format(datetime.now()))
     for pol in O.GiscedataPolissa.read(pids, ['llista_preu', 'coeficient_d', 'coeficient_k', 'name', 'tarifa']):
         fee = pol['coeficient_d'] + pol['coeficient_k']
         llprice = pol['llista_preu'][1]
@@ -235,13 +241,14 @@ def enqueue_indexed(bucket=1, force=False):
     for group_key, contracts in indexed_grouppeds.items():
         # Search last indexed publish date
         tariff_id, cost = group_key
-        pindexed_id = O.EmpoweringPriceIndexed(
-            search([('tariff_id', '=', str(tariff_id)), ('cost', '=', int(cost))])
+        pindexed_id = O.EmpoweringPriceIndexed.search(
+            [('tariff_id', '=', str(tariff_id)), ('tariff_cost_id', '=', str(cost))]
         )
         if pindexed_id:
             ldate = O.EmpoweringPriceIndexed.read(
                 pindexed_id[0], ['empowering_price_indexed_last_push']
             )['empowering_price_indexed_last_push']
+            logger.info('Grup indexats %s, pujem desde ultima data %s', group_key, ldate)
         else:
             # todo: if not exists, which date??
             dta = datetime.now()
@@ -250,7 +257,10 @@ def enqueue_indexed(bucket=1, force=False):
         fact_ids = []
         for pol_id in contracts:
             fact_ids += O.GiscedataFacturacioFactura.search([
-                ('polissa_id', '=', pol_id), ('data_inici', '>=', ldate), ('type', '=', 'out_invoice')
+                ('polissa_id', '=', pol_id),
+                ('data_inici', '>', ldate),
+                ('type', '=', 'out_invoice'),
+                ('llista_preu.name', '=like', '%ndex%')
             ])
         if fact_ids:
             logger.info('Pushing %s indexed group with #facts %s', group_key, len(fact_ids))
