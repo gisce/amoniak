@@ -228,7 +228,8 @@ def enqueue_indexed(bucket=1, force=False, wreport=False):
     pids = O.GiscedataPolissa.search([('mode_facturacio', '=', 'index')])
     if wreport:
         import pandas as pd
-        writer = pd.ExcelWriter('/tmp/beedata_indexed_{}.xlsx'.format(datetime.now()))
+        report_name = '/tmp/beedata_indexed_{}.xlsx'.format(datetime.now())
+        writer = pd.ExcelWriter(report_name)
     for pol in O.GiscedataPolissa.read(pids, ['llista_preu', 'coeficient_d', 'coeficient_k', 'name', 'tarifa']):
         fee = pol['coeficient_d'] + pol['coeficient_k']
         llprice = pol['llista_preu'][1]
@@ -281,7 +282,9 @@ def enqueue_indexed(bucket=1, force=False, wreport=False):
                     continue
                 df = pd.DataFrame(data=r)
                 df.to_excel(writer, sheet_name='{}{}'.format(at, ak))
-    writer.save()
+    if wreport:
+        logger.info('Report guardat: %s', report_name)
+        writer.save()
 
 @job(setup_queue(name='measures'), connection=setup_redis(), timeout=3600)
 @sentry.capture_exceptions
