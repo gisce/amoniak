@@ -420,33 +420,39 @@ def push_tariffs(tariffs):
 @job(setup_queue(name='indexeds'), connection=setup_redis(), timeout=3600)
 @sentry.capture_exceptions
 def push_indexeds(indexeds):
+    """Preus horaris indexats agrupats per llista de preu i FEE
+    """
     c = setup_peek()
     a = AmonConverter(c)
     result = a.indexed_to_amon(*indexeds)
     with setup_empowering_api() as em:
         try:
-            print(result)
             response = em.price_indexed().create(result)
             if response['_status'] == 'OK':
-                etag = response['_etag']
-                tid = result[0]['tariffId']
-                cid = result[0]['cost']
-                epid = c.EmpoweringPriceIndexed.search([
-                    ('tariffId', '=', tid), ('tariffCostId', '=', cid)
-                ])
-                ldate = max([x.datetime for x in result])
-                if epid:
-                    c.EmpoweringPriceIndexed.write(epid, {
-                        'empowering_price_indexed_last_push': ldate,
-                        'etag': etag
-                    })
-                else:
-                    c.EmpoweringPriceIndexed.create({
-                        'tariffId': tid,
-                        'tariffCostId': cid,
-                        'empowering_price_indexed_last_push': ldate,
-                        'etag': etag
-                    })
+                logger.info('Grup indexats PUJAT CORRECTAMENT! %s', response)
+                # If a list is POSTed it will return an ordered list with documents
+                # with eve fields added
+                for item in response['_items']:
+                    etag = item['_etag']
+                    # First or last same tariffId and cost
+                    tid = result[0]['tariffId']
+                    cid = result[0]['tariffCostId']
+                    epid = c.EmpoweringPriceIndexed.search([
+                        ('tariff_id', '=', tid), ('tariff_cost_id', '=', cid)
+                    ])
+                    ldate = max([x['datetime'] for x in result])
+                    if epid:
+                        c.EmpoweringPriceIndexed.write(epid, {
+                            'empowering_price_indexed_last_push': ldate,
+                            'etag': etag
+                        })
+                    else:
+                        c.EmpoweringPriceIndexed.create({
+                            'tariff_id': tid,
+                            'tariff_cost_id': cid,
+                            'empowering_price_indexed_last_push': ldate,
+                            'etag': etag
+                        })
         except urllib2.HTTPError as err:
             print(err.read())
             raise
