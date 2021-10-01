@@ -413,7 +413,7 @@ class AmonConverter(object):
             'modcontractual_activa', 'name', 'cups', 'comptadors', 'state',
             'tarifa', 'titular', 'pagador', 'data_alta', 'data_baixa',
             'llista_preu', 'cnae', 'modcontractuals_ids', 'potencia',
-            't_d', 'coeficient_k', 'mode_facturacio'
+            'coeficient_d', 'coeficient_k', 'mode_facturacio'
         ]
         for polissa in pol.read(contract_ids, fields_to_read):
             if polissa['state'] in ('esborrany', 'validar'):
