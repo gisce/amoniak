@@ -413,7 +413,7 @@ class AmonConverter(object):
             'modcontractual_activa', 'name', 'cups', 'comptadors', 'state',
             'tarifa', 'titular', 'pagador', 'data_alta', 'data_baixa',
             'llista_preu', 'cnae', 'modcontractuals_ids', 'potencia',
-            'coeficient_d', 'coeficient_k', 'mode_facturacio'
+            'coeficient_d', 'coeficient_k', 'mode_facturacio', 'potencies_periode'
         ]
         for polissa in pol.read(contract_ids, fields_to_read):
             if polissa['state'] in ('esborrany', 'validar'):
@@ -421,7 +421,7 @@ class AmonConverter(object):
             tarifa_atr = polissa['tarifa'][1]
             customer = partner.read(polissa['titular'][0], ['lang'])
             if polissa['mode_facturacio'] == 'index':
-                fee = pol['coeficient_d'] + pol['coeficient_k']
+                fee = polissa['coeficient_d'] + polissa['coeficient_k']
                 tariff_cost_id = '{} - {}'.format(polissa['llista_preu'][1], fee)
             else:
                 tariff_cost_id = polissa['llista_preu'][1]
