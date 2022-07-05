@@ -85,6 +85,9 @@ class AmonConverter(object):
         c = self.O
         tariff = c.GiscedataPolissaTarifa.read(tariff_id, ['name'])
         pricelist = c.ProductPricelist.browse(pricelist_id)
+        uom_id = c.IrModelData.get_object_reference(
+            'giscedata_facturacio', 'uom_pot_elec_dia'
+        )[1]
         date_start = None
         date_end = None
         for v in pricelist.version_id:
@@ -99,7 +102,9 @@ class AmonConverter(object):
                 else:
                     date_end = max(date_end, v.date_end)
             else:
-                date_end = None
+                date_end = '3000-01-01'
+        if date_end == '3000-01-01':
+            date_end = None
         price_date = datetime.now().strftime('%Y-%m-%d')
         result = {
             'tariffCostId': '{} ({})'.format(
@@ -108,12 +113,12 @@ class AmonConverter(object):
             'tariffId': tariff['name'],
             'dateStart': date_start and make_utc_timestamp(date_start),
             'dateEnd': date_end and make_utc_timestamp(date_end),
-            'powerPrice': c.GiscedataPolissaTarifa.get_periodes_preus(
-                tariff_id, 'tp', pricelist_id, {'date': price_date}
-            ).values(),
-            'energyPrice': c.GiscedataPolissaTarifa.get_periodes_preus(
+            'powerPrice': [round(v, 6) for k, v in sorted(c.GiscedataPolissaTarifa.get_periodes_preus(
+                tariff_id, 'tp', pricelist_id, {'date': price_date, 'uom': uom_id}
+            ).items())],
+            'energyPrice': [v for k, v in sorted(c.GiscedataPolissaTarifa.get_periodes_preus(
                 tariff_id, 'te', pricelist_id, {'date': price_date}
-            ).values()
+            ).items())]
         }
         return result
 
@@ -125,11 +130,14 @@ class AmonConverter(object):
         uuids = {}
         model = c.model(collection)
         for profile in model.read(profiles):
-            m_point_id = uuids.get(profile['name'])
+            cups = profile['name']
+            if len(cups) != 22:
+                cups = '{}0F'.format(cups)
+            m_point_id = uuids.get(cups)
             if not m_point_id:
-                m_point_id = make_uuid('giscedata.cups.ps', profile['name'])
-                uuids[profile['name']] = m_point_id
-            result.setdefault(profile['name'], {
+                m_point_id = make_uuid('giscedata.cups.ps', cups)
+                uuids[cups] = m_point_id
+            result.setdefault(cups, {
                 "measurements": [],
                 "meteringPointId": m_point_id,
                 "readings": [
@@ -138,7 +146,7 @@ class AmonConverter(object):
                 ],
                 "deviceId": m_point_id
             })
-            result[profile['name']]['measurements'] += [
+            result[cups]['measurements'] += [
                 {
                     "timestamp": make_utc_timestamp(profile['datetime']),
                     "type": "electricityConsumption",
@@ -450,7 +458,10 @@ class AmonConverter(object):
                 'devices': self.device_to_amon(
                     polissa['comptadors'],
                     force_serial=make_uuid('giscedata.cups.ps', polissa['cups'][1])
-                )
+                ),
+                'report': {
+                    'language': customer['lang'] or 'ca_ES'
+                }
             }
             # History fields
             history_fields = [
@@ -523,7 +534,7 @@ class AmonConverter(object):
 
             cups = self.cups_to_amon(polissa['cups'][0])
             recursive_update(contract, cups)
-            res.append(remove_none(contract, context))
+            res.append(contract)
         return res
 
     def device_to_amon(self, device_ids, force_serial=None):
@@ -557,7 +568,7 @@ class AmonConverter(object):
                     'cityCode': ine,
                     'countryCode': 'ES',
                     'street': get_street_name(cups),
-                    'postalCode': cups['dp']
+                    'postalCode': cups['dp'] or None
                 }
             },
             'experimentalGroupUserTest': False,

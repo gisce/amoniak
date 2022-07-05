@@ -50,27 +50,41 @@ def enqueue_profiles(bucket=500, contracts=None, force=False):
     search_params = [('etag', '!=', False)]
     if contracts:
         search_params.append(('name', 'in', contracts))
-    pids = c.GiscedataPolissa.search(search_params)
-    fields_to_read = ['name', 'cups', 'empowering_last_profile_measure']
-    for polissa in c.GiscedataPolissa.read(pids, fields_to_read):
+    pids = c.GiscedataPolissa.search(search_params, context={'active_test': False})
+    fields_to_read = ['name', 'cups', 'empowering_last_profile_measure', 'data_alta', 'data_baixa']
+    from tqdm import tqdm
+    for polissa in tqdm(c.GiscedataPolissa.read(pids, fields_to_read)):
         last_measure = polissa.get('empowering_last_profile_measure')
         cups = polissa['cups'][1]
         if not last_measure or force:
             logger.info("Les pugem totes")
             from_date = (
                 datetime.now() - relativedelta(years=3)
-            ).strftime('%Y-%m-%d 01:00:00')
-            logger.info(u"Pujant un any màxim: %s" % from_date)
+            ).strftime('%Y-%m-%d')
+            from_date = max(polissa['data_alta'], from_date)
+            from_date = '{} 01:00:00'.format(from_date)
         else:
-            logger.info(u"Última lectura trobada: %s" % last_measure)
             from_date = last_measure
+        if polissa['data_baixa']:
+            to_date = (
+                datetime.strptime(polissa['data_baixa'], '%Y-%m-%d') + relativedelta(days=1)
+            ).strftime('%Y-%m-%d 00:00:00')
+        else:
+            to_date = ''
+        logger.info(u"Pujant des de: %s fins a %s", from_date, to_date)
         # Use TM also
         for collection in ['tg.cchfact', 'tg.f1']:
             model = c.model(collection)
-            measures = model.search([
-                ('name', '=', cups),
-                ('datetime', '>=', from_date)
-            ])
+            cups_names = model.get_curve_cups(cups)
+            search_profiles = [
+                ('name', 'in', cups_names),
+                ('datetime', '>', from_date)
+            ]
+            if polissa['data_baixa']:
+                search_profiles += [
+                    ('datetime', '<=', to_date)
+                ]
+            measures = model.search(search_profiles)
             logger.info("S'han trobat %s mesures (%s) per pujar", 
                 len(measures), collection
             )
@@ -87,12 +101,10 @@ def enqueue_profiles(bucket=500, contracts=None, force=False):
 def enqueue_measures(bucket=500, contracts=None, force=False):
     # First get all the contracts that are in sync
     c = setup_peek()
-    # TODO: Que fem amb les de baixa? les agafem igualment? només les que
-    # TODO: faci menys de X que estan donades de baixa?
     search_params = [('etag', '!=', False)]
     if contracts:
         search_params.append(('name', 'in', contracts))
-    pids = c.GiscedataPolissa.search(search_params)
+    pids = c.GiscedataPolissa.search(search_params, context={'active_test': False})
     # Comptadors que tingui aquesta pòlissa i que siguin de telegestió
     cids = c.GiscedataLecturesComptador.search([
         ('polissa', 'in', pids)
@@ -156,7 +168,15 @@ def enqueue_contracts(contracts=None, force=False):
     O = setup_peek()
     # Busquem els que hem d'actualitzar
     if contracts is None:
-        polisses_ids = O.GiscedataPolissa.search([('etag', '!=', False)])
+        polisses_actives_ids = O.GiscedataPolissa.search([
+            ('state', 'not in', ('esborrany', 'validar', 'cancelada')), ('contract_type', '=', '01')
+        ])
+        date_ago = (datetime.now() - relativedelta(months=3)).strftime('%Y-%m-%d')
+        polisses_baixes_ids = O.GiscedataPolissa.search([
+            ('state', '=', 'baixa'),
+            ('data_baixa', '>=', date_ago)
+        ], context={'active_test': False})
+        polisses_ids = polisses_actives_ids + polisses_baixes_ids
     else:
         polisses_ids = O.GiscedataPolissa.search([
             ('name', 'in', contracts)
@@ -209,7 +229,7 @@ def enqueue_contracts(contracts=None, force=False):
         if modcons:
             logger.info('Polissa %s actualitzada a %s després de %s' % (
                 polissa.name, w_date, last_updated))
-            push_contracts.delay([polissa['id']])
+            push_contracts.delay(polissa.id)
         if is_new_contract:
             logger.info("La polissa %s te etag pero ha estat borrada "
                         "d'empowering, es torna a pujar" % polissa['name'])
