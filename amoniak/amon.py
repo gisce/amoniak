@@ -497,25 +497,14 @@ class AmonConverter(object):
                         tertiary_power_history[period.lower()] = int(power * 1000)
                     contract['tertiaryPowerHistory'].append(tertiary_power_history)
                 else:
-                    if modcon['data_inici'] >= '2021-06-01':
-                        period_powers = dict.fromkeys(['p1', 'p2'], 0)
-                        for period, power in pol.get_potencies_dict(polissa['id']).items():
-                            period_powers.update({period.lower(): int(power * 1000)})
-                        period_powers.update({'dateStart': make_utc_timestamp(modcon['data_inici']), 'dateEnd': make_utc_timestamp(modcon['data_final'])})
-                        contract['powerHistory'].append(period_powers)
-                        if mcon_activa == modcon['id']:
-                            contract['power_'] = period_powers
-                    else:
-                        contract['powerHistory'].append({
-                            'dateStart': make_utc_timestamp(modcon['data_inici']),
-                            'dateEnd': make_utc_timestamp(modcon['data_final']),
-                            'power': int(modcon['potencia'] * 1000)
-                        })
+                    contract['powerHistory'].append({
+                        'dateStart': make_utc_timestamp(modcon['data_inici']),
+                        'dateEnd': make_utc_timestamp(modcon['data_final']),
+                        'power': int(modcon['potencia'] * 1000)
+                    })
 
             # Reduce only for this changes
             for k, f in history_fields:
-                if k == 'powerHistory':
-                    continue
                 contract[k] = reduce_history(contract[k], f)
                 # Remove historic field if empty
                 if not contract[k]:

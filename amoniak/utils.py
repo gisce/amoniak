@@ -176,4 +176,4 @@ def reduce_history(history, keys):
 
 
 def is_tertiary(tarifa_atr):
-    return tarifa_atr.startswith('3.') or tarifa_atr.startswith('6.')
+    return tarifa_atr.startswith('3.') or tarifa_atr.startswith('6.') or 'TD' in tarifa_atr
