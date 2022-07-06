@@ -415,6 +415,7 @@ def push_contracts(contracts_id):
             contracts_id = [contracts_id]
         for pol in O.GiscedataPolissa.read(contracts_id, ['name', 'etag']):
             amon_data = amon.contract_to_amon(pol['id'])[0]
+            logger.debug('Contract data %s', amon_data)
             try:
                 if pol['etag']:
                     response = em.contract(pol['name']).update(
