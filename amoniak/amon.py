@@ -488,20 +488,22 @@ class AmonConverter(object):
                     'dateEnd': make_utc_timestamp(modcon['data_final']),
                     'tariffId': mod_tarifa_atr
                 })
-                if is_tertiary(mod_tarifa_atr):
-                    tertiary_power_history = {
-                        'dateStart': make_utc_timestamp(modcon['data_inici']),
-                        'dateEnd': make_utc_timestamp(modcon['data_final']),
-                    }
-                    for period, power in modcon_obj.get_potencies_dict(modcon['id']).items():
-                        tertiary_power_history[period.lower()] = int(power * 1000)
-                    contract['tertiaryPowerHistory'].append(tertiary_power_history)
-                else:
-                    contract['powerHistory'].append({
-                        'dateStart': make_utc_timestamp(modcon['data_inici']),
-                        'dateEnd': make_utc_timestamp(modcon['data_final']),
-                        'power': int(modcon['potencia'] * 1000)
-                    })
+
+                # Fill tertiaryPowerHistory and powerHistory fields
+                tertiary_power_history = {
+                    'dateStart': make_utc_timestamp(modcon['data_inici']),
+                    'dateEnd': make_utc_timestamp(modcon['data_final']),
+                }
+                for period, power in modcon_obj.get_potencies_dict(modcon['id']).items():
+                    tertiary_power_history[period.lower()] = int(power * 1000)
+                contract['tertiaryPowerHistory'].append(tertiary_power_history)
+
+                power_history = {
+                    'dateStart': make_utc_timestamp(modcon['data_inici']),
+                    'dateEnd': make_utc_timestamp(modcon['data_final']),
+                    'power': int(modcon['potencia'] * 1000)
+                }
+                contract['powerHistory'].append(power_history)
 
             # Reduce only for this changes
             for k, f in history_fields:
@@ -511,10 +513,12 @@ class AmonConverter(object):
                     contract.pop(k)
 
             # Get tertiary power
-            if is_tertiary(tarifa_atr):
-                contract['tertiaryPower'] = {}
-                for period, power in pol.get_potencies_dict(polissa['id']).items():
-                    contract['tertiaryPower'][period.lower()] = int(power * 1000)
+            contract['tertiaryPower'] = {}
+            for period, power in pol.get_potencies_dict(polissa['id']).items():
+                contract['tertiaryPower'][period.lower()] = int(power * 1000)
+            contract['tertiaryPower_'] = contract['tertiaryPower'].copy()
+            contract['tertiaryPower_'].update({'dateStart': make_utc_timestamp(polissa['data_alta'])})
+            contract['tertiaryPower_'].update({'dateEnd': None})
 
             # Add custom fields
             customFields = pol.get_empowering_custom_fields(polissa['id'])
