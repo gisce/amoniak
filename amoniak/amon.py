@@ -96,19 +96,30 @@ class AmonConverter(object):
             tariff_cost_id = '{} ({})'.format(pricelist.name, pricelist.currency_id.name)
             tariff_name = tariff['name']
             price_date = date_start[:10]
-            vals = {
-                'tariffCostId': tariff_cost_id,
-                'tariffId': tariff_name,
-                'dateStart': date_start and make_utc_timestamp(date_start),
-                'dateEnd': date_end and make_utc_timestamp(date_end),
-                'powerPrice': [round(v, 6) for k, v in sorted(c.GiscedataPolissaTarifa.get_periodes_preus(
-                    tariff_id, 'tp', pricelist_id, {'date': price_date, 'uom': uom_id}
-                ).items())],
-                'energyPrice': [v for k, v in sorted(c.GiscedataPolissaTarifa.get_periodes_preus(
-                    tariff_id, 'te', pricelist_id, {'date': price_date}
-                ).items())]
-            }
-            result.append(vals)
+            try:
+                vals = {
+                    'tariffCostId': tariff_cost_id,
+                    'tariffId': tariff_name,
+                    'dateStart': date_start and make_utc_timestamp(date_start),
+                    'dateEnd': date_end and make_utc_timestamp(date_end),
+                    'powerPrice': [round(v, 6) for k, v in sorted(c.GiscedataPolissaTarifa.get_periodes_preus(
+                        tariff_id, 'tp', pricelist_id, {'date': price_date, 'uom': uom_id}
+                    ).items())],
+                    'energyPrice': [v for k, v in sorted(c.GiscedataPolissaTarifa.get_periodes_preus(
+                        tariff_id, 'te', pricelist_id, {'date': price_date}
+                    ).items())]
+                }
+                result.append(vals)
+            except:
+                logger.error(
+                    "Error retrieving prices",
+                    extra={'data': {
+                        'pricelist': (pricelist_id, pricelist.name),
+                        'tariff': (tariff_id, tariff_name),
+                        'date': price_date
+                    }}
+                )
+                continue
         return result
 
     def profiles_to_amon(self, profiles, collection='tg.cchfact'):
