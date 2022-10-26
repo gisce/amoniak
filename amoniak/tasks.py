@@ -26,7 +26,7 @@ def enqueue_tariffs(tariffs=None):
     search_params = []
     if tariffs:
         search_params.append(('name', 'in', tariffs))
-    tids = c.ProductPricelist.search(search_params)
+    tids = c.ProductPricelist.search(search_params, context={'active_test': False})
     to_q = []
     for pricelist in c.ProductPricelist.browse(tids):
         for tatr in pricelist.tarifes_atr_compatibles:
@@ -435,12 +435,14 @@ def push_tariffs(tariffs):
     a = AmonConverter(c)
     result = a.tariff_to_amon(*tariffs)
     with setup_empowering_api() as em:
-        try:
-            print(result)
-            em.tariffs().create(result)
-        except urllib2.HTTPError as err:
-            print(err.read())
-            raise
+        for r in result:
+            try:
+                print(r)
+                em.tariffs().create(r)
+            except urllib2.HTTPError as err:
+                print(err.read())
+                raise
+
 
 @job(setup_queue(name='indexeds'), connection=setup_redis(), timeout=3600)
 @sentry.capture_exceptions
