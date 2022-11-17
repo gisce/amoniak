@@ -473,7 +473,8 @@ class AmonConverter(object):
             for k, _ in history_fields:
                 contract[k] = []
             modcon_fields = [
-                'data_inici', 'data_final', 'llista_preu', 'tarifa', 'potencia'
+                'data_inici', 'data_final', 'llista_preu', 'tarifa', 'potencia',
+                'mode_facturacio', 'coeficient_d', 'coeficient_k'
             ]
             mcon_activa = polissa['modcontractual_activa'][0]
             for modcon in O.GiscedataPolissaModcontractual.read(polissa['modcontractuals_ids'], modcon_fields):
