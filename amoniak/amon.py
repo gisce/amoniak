@@ -85,41 +85,41 @@ class AmonConverter(object):
         c = self.O
         tariff = c.GiscedataPolissaTarifa.read(tariff_id, ['name'])
         pricelist = c.ProductPricelist.browse(pricelist_id)
-        uom_id = c.IrModelData.get_object_reference(
-            'giscedata_facturacio', 'uom_pot_elec_dia'
-        )[1]
-        date_start = None
-        date_end = None
+        uom_id = c.IrModelData.get_object_reference('giscedata_facturacio', 'uom_pot_elec_dia')[1]
+        result = []
         for v in pricelist.version_id:
-            if v.date_start:
-                if not date_start:
-                    date_start = v.date_start
-                else:
-                    date_start = min(date_start, v.date_start)
+            date_start = v.date_start + ' 01:00:00'
             if v.date_end:
-                if not date_end:
-                    date_end = v.date_end
-                else:
-                    date_end = max(date_end, v.date_end)
+                date_end = (datetime.strptime(v.date_end, '%Y-%m-%d') + timedelta(days=1)).strftime('%Y-%m-%d')
             else:
-                date_end = '3000-01-01'
-        if date_end == '3000-01-01':
-            date_end = None
-        price_date = datetime.now().strftime('%Y-%m-%d')
-        result = {
-            'tariffCostId': '{} ({})'.format(
-                pricelist.name, pricelist.currency_id.name
-            ),
-            'tariffId': tariff['name'],
-            'dateStart': date_start and make_utc_timestamp(date_start),
-            'dateEnd': date_end and make_utc_timestamp(date_end),
-            'powerPrice': [round(v, 6) for k, v in sorted(c.GiscedataPolissaTarifa.get_periodes_preus(
-                tariff_id, 'tp', pricelist_id, {'date': price_date, 'uom': uom_id}
-            ).items())],
-            'energyPrice': [v for k, v in sorted(c.GiscedataPolissaTarifa.get_periodes_preus(
-                tariff_id, 'te', pricelist_id, {'date': price_date}
-            ).items())]
-        }
+                date_end = None
+            tariff_cost_id = '{} ({})'.format(pricelist.name, pricelist.currency_id.name)
+            tariff_name = tariff['name']
+            price_date = date_start[:10]
+            try:
+                vals = {
+                    'tariffCostId': tariff_cost_id,
+                    'tariffId': tariff_name,
+                    'dateStart': date_start and make_utc_timestamp(date_start),
+                    'dateEnd': date_end and make_utc_timestamp(date_end),
+                    'powerPrice': [round(v, 6) for k, v in sorted(c.GiscedataPolissaTarifa.get_periodes_preus(
+                        tariff_id, 'tp', pricelist_id, {'date': price_date, 'uom': uom_id}
+                    ).items())],
+                    'energyPrice': [v for k, v in sorted(c.GiscedataPolissaTarifa.get_periodes_preus(
+                        tariff_id, 'te', pricelist_id, {'date': price_date}
+                    ).items())]
+                }
+                result.append(vals)
+            except:
+                logger.error(
+                    "Error retrieving prices",
+                    extra={'data': {
+                        'pricelist': (pricelist_id, pricelist.name),
+                        'tariff': (tariff_id, tariff_name),
+                        'date': price_date
+                    }}
+                )
+                continue
         return result
 
     def profiles_to_amon(self, profiles, collection='tg.cchfact'):
