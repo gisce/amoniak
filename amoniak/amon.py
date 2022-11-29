@@ -473,15 +473,23 @@ class AmonConverter(object):
             for k, _ in history_fields:
                 contract[k] = []
             modcon_fields = [
-                'data_inici', 'data_final', 'llista_preu', 'tarifa', 'potencia'
+                'data_inici', 'data_final', 'llista_preu', 'tarifa', 'potencia',
+                'mode_facturacio', 'coeficient_d', 'coeficient_k'
             ]
             mcon_activa = polissa['modcontractual_activa'][0]
             for modcon in O.GiscedataPolissaModcontractual.read(polissa['modcontractuals_ids'], modcon_fields):
                 mod_tarifa_atr = modcon['tarifa'][1]
+
+                if modcon['mode_facturacio'] == 'index':
+                    fee = modcon['coeficient_d'] + modcon['coeficient_k']
+                    tariff_cost_id = '{} - {}'.format(modcon['llista_preu'][1], fee)
+                else:
+                    tariff_cost_id = modcon['llista_preu'][1]
+
                 contract['tariffCostHistory'].append({
                     'dateStart': make_utc_timestamp(modcon['data_inici']),
                     'dateEnd': make_utc_timestamp(modcon['data_final']),
-                    'tariffCostId': modcon['llista_preu'][1]
+                    'tariffCostId': tariff_cost_id
                 })
                 contract['tariffHistory'].append({
                     'dateStart': make_utc_timestamp(modcon['data_inici']),
