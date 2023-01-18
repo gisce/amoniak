@@ -164,6 +164,10 @@ class AmonConverter(object):
 
         for m in deepcopy(measures):
             values = {}
+            cups = m['cups']
+            # Check if CUPS must be informed with 20 characters
+            if int(os.getenv('CUPS_20_CHARACTERS', '0')):
+                cups = cups[:20]
             for agg in m['measures']:
                 t = agg.pop('tipus')
                 values.setdefault(t, {})
@@ -186,7 +190,7 @@ class AmonConverter(object):
                     'values': values.get('P')
                 }
             }
-            deviceId = make_uuid('giscedata.cups.ps', m['cups'])
+            deviceId = make_uuid('giscedata.cups.ps', cups)
             readings = []
             if measurements['A']['values']:
                 readings.append({
