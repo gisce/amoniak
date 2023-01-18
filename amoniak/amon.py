@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from pytz import timezone
 import json
 import logging
+import os
 
 from .cache import CUPS_CACHE, CUPS_UUIDS
 from .utils import recursive_update, reduce_history, is_tertiary
@@ -133,6 +134,9 @@ class AmonConverter(object):
             cups = profile['name']
             if len(cups) != 22:
                 cups = '{}0F'.format(cups)
+            # Check if CUPS must be informed with 20 characters
+            if int(os.getenv('CUPS_20_CHARACTERS', '0')):
+                cups = cups[:20]
             m_point_id = uuids.get(cups)
             if not m_point_id:
                 m_point_id = make_uuid('giscedata.cups.ps', cups)
