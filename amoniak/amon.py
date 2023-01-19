@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from pytz import timezone
 import json
 import logging
+import os
 
 from .cache import CUPS_CACHE, CUPS_UUIDS
 from .utils import recursive_update, reduce_history, is_tertiary
@@ -133,6 +134,9 @@ class AmonConverter(object):
             cups = profile['name']
             if len(cups) != 22:
                 cups = '{}0F'.format(cups)
+            # Check if CUPS must be informed with 20 characters
+            if int(os.getenv('CUPS_20_CHARACTERS', '0')):
+                cups = cups[:20]
             m_point_id = uuids.get(cups)
             if not m_point_id:
                 m_point_id = make_uuid('giscedata.cups.ps', cups)
@@ -160,6 +164,10 @@ class AmonConverter(object):
 
         for m in deepcopy(measures):
             values = {}
+            cups = m['cups']
+            # Check if CUPS must be informed with 20 characters
+            if int(os.getenv('CUPS_20_CHARACTERS', '0')):
+                cups = cups[:20]
             for agg in m['measures']:
                 t = agg.pop('tipus')
                 values.setdefault(t, {})
@@ -182,7 +190,7 @@ class AmonConverter(object):
                     'values': values.get('P')
                 }
             }
-            deviceId = make_uuid('giscedata.cups.ps', m['cups'])
+            deviceId = make_uuid('giscedata.cups.ps', cups)
             readings = []
             if measurements['A']['values']:
                 readings.append({
@@ -440,6 +448,10 @@ class AmonConverter(object):
                 tariff_cost_id = '{} - {}'.format(polissa['llista_preu'][1], fee)
             else:
                 tariff_cost_id = polissa['llista_preu'][1]
+            cups = polissa['cups'][1]
+            # Check if CUPS must be informed with 20 characters
+            if int(os.getenv('CUPS_20_CHARACTERS', '0')):
+                cups = cups[:20]
             contract = {
                 'contractId': polissa['name'],
                 'ownerId': make_uuid('res.partner', polissa['titular'][0]),
@@ -457,7 +469,7 @@ class AmonConverter(object):
                 },
                 'devices': self.device_to_amon(
                     polissa['comptadors'],
-                    force_serial=make_uuid('giscedata.cups.ps', polissa['cups'][1])
+                    force_serial=make_uuid('giscedata.cups.ps', cups)
                 ),
                 'report': {
                     'language': customer['lang'] or 'ca_ES'
@@ -560,9 +572,13 @@ class AmonConverter(object):
         if 'empowering' in cups_obj.fields_get():
             cups_fields.append('empowering')
         cups = cups_obj.read(cups_id, cups_fields)
+        cups_name = cups['name']
+        # Check if CUPS must be informed with 20 characters
+        if int(os.getenv('CUPS_20_CHARACTERS', '0')):
+            cups_name = cups_name[:20]
         ine = muni_obj.read(cups['id_municipi'][0], ['ine'])['ine']
         res = {
-            'meteringPointId': make_uuid('giscedata.cups.ps', cups['name']),
+            'meteringPointId': make_uuid('giscedata.cups.ps', cups_name),
             'customer': {
                 'address': {
                     'city': cups['id_municipi'][1],

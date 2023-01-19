@@ -360,7 +360,7 @@ def push_amon_profiles(profiles, collection):
                 for x in m_to_push['measurements']
             )
             pol_id = c.GiscedataPolissa.search([
-                ('cups.name', '=', cups),
+                ('cups.name', 'like', cups),
                 ('state', 'not in', ('esborrany', 'validar', 'cancelada', 'baixa')),
                 ('data_alta', '<=', last_measure),
                 '|',
