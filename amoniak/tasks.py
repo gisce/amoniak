@@ -197,6 +197,10 @@ def enqueue_contracts(contracts=None, force=False):
             with setup_empowering_api() as em:
                 last_updated = em.contract(polissa['name']).get()['_updated']
                 last_updated = make_local_timestamp(last_updated)
+                etag_beedata = em.contract(polissa['name']).get()['_etag']
+                # Update etag in ERP if it changed
+                if etag_beedata != polissa['etag']:
+                    O.GiscedataPolissa.write(polissa['id'], {'etag': etag_beedata})
         except (libsaas.http.HTTPError, urllib2.HTTPError) as e:
             # A 404 is possible if we delete empowering contracts in insight engine
             # but keep etag in our database.
