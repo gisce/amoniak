@@ -270,7 +270,7 @@ def enqueue_indexed(bucket=1, force=False, wreport=False):
         pindexed_id = O.EmpoweringPriceIndexed.search(
             [('tariff_id', '=', str(tariff_id)), ('tariff_cost_id', '=', str(cost))]
         )
-        if pindexed_id:
+        if pindexed_id and not force:
             ldate = O.EmpoweringPriceIndexed.read(
                 pindexed_id[0], ['empowering_price_indexed_last_push']
             )['empowering_price_indexed_last_push']
@@ -287,7 +287,10 @@ def enqueue_indexed(bucket=1, force=False, wreport=False):
             else:
                 # Agrupacio encara sense factures o contractes en esborrany
                 continue
-            logger.info('Grup indexats %s NO PUJAT MAI ENCARA, pujem desde primera factura %s', group_key, ldate)
+            if force:
+                logger.info('Grup indexats %s NO PUJAT MAI ENCARA, pujem desde primera factura %s', group_key, ldate)
+            else:
+                logger.info('Grup indexats %s FORÇATS, pujem desde primera factura %s', group_key, ldate)
         fact_ids = []
         ldate = ldate[:10]
         for pol_id in contracts:
