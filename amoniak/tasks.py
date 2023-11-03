@@ -288,9 +288,9 @@ def enqueue_indexed(bucket=1, force=False, wreport=False):
                 # Agrupacio encara sense factures o contractes en esborrany
                 continue
             if force:
-                logger.info('Grup indexats %s NO PUJAT MAI ENCARA, pujem desde primera factura %s', group_key, ldate)
-            else:
                 logger.info('Grup indexats %s FORÇATS, pujem desde primera factura %s', group_key, ldate)
+            else:
+                logger.info('Grup indexats %s NO PUJAT MAI ENCARA, pujem desde primera factura %s', group_key, ldate)
         fact_ids = []
         ldate = ldate[:10]
         for pol_id in contracts:
