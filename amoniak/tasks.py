@@ -241,7 +241,7 @@ def enqueue_contracts(contracts=None, force=False):
             push_contracts.delay([polissa['id']])
 
 
-def enqueue_indexed(bucket=1, force=False, wreport=False):
+def enqueue_indexed(bucket=1, force=False, pricelist=False, wreport=False):
     """Busquem els grups indexats formats per llista preu + FEE que coincideixin
     Recuperem l'ultima data publicada per saber d'es d'on pujar
     Si l'agrupació no s'ha pujat mai, busquem factures i pujem desde la data més petita
@@ -258,6 +258,10 @@ def enqueue_indexed(bucket=1, force=False, wreport=False):
     for pol in O.GiscedataPolissa.read(pids, ['llista_preu', 'coeficient_d', 'coeficient_k', 'name', 'tarifa']):
         fee = pol['coeficient_d'] + pol['coeficient_k']
         llprice = pol['llista_preu'][1]
+        # If pricelist name is specified, filter
+        if pricelist:
+            if pricelist not in llprice:
+                continue
         tarifa = pol['tarifa'][1]
         key = (tarifa, '{} - {}'.format(llprice, fee))
         if key not in indexed_grouppeds:
