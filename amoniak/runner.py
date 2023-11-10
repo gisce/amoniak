@@ -99,11 +99,12 @@ def enqueue_contract(contracts, force):
 
 @amoniak.command()
 @click.option('--force', default=False, is_flag=True)
+@click.argument('--partial_name_list', default=False, is_flag=True)
 @click.argument('wreport', nargs=-1)
-def enqueue_indexed(force, wreport):
+def enqueue_indexed(force, partial_name_list, wreport):
     logger = logging.getLogger('amon')
     logger.info('Enqueuing indexed data')
-    tasks.enqueue_indexed(force=force, wreport=wreport)
+    tasks.enqueue_indexed(force=force, wreport=wreport, partial_name_list=partial_name_list)
 
 if __name__ == '__main__':
     amoniak(obj={})
