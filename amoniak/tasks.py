@@ -298,12 +298,17 @@ def enqueue_indexed(bucket=1, force=False, pricelist=False, wreport=False):
         fact_ids = []
         ldate = ldate[:10]
         for pol_id in contracts:
-            fact_ids += O.GiscedataFacturacioFactura.search([
+            pol_fact_ids = O.GiscedataFacturacioFactura.search([
                 ('polissa_id', '=', pol_id),
                 ('data_inici', '>', ldate),
-                ('type', '=', 'out_invoice'),
-                ('llista_preu.name', '=like', '%ndex%')
+                ('type', '=', 'out_invoice')
             ])
+            for f_id in pol_fact_ids:
+                f_data_fi = O.GiscedataFacturacioFactura.read(f_id, ['data_final'])['data_final']
+                pol_mode_facturacio = O.GiscedataPolissa.read(pol_id, ['mode_facturacio'],
+                                                              context={'date': f_data_fi})['mode_facturacio']
+                if pol_mode_facturacio == 'index':
+                    fact_ids.append(f_id)
         if fact_ids:
             logger.info('Pujant %s grup indexats amb #facts %s', group_key, len(fact_ids))
             r = push_indexeds.delay((group_key, fact_ids))
