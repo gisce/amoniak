@@ -24,5 +24,6 @@ setup(
     """,
     author='GISCE-TI, S.L.',
     author_email='ti@gisce.net',
-    description='AMON Tools for GISCE-ERP'
+    description='AMON Tools for GISCE-ERP',
+    long_description='AMON Tools for GISCE-ERP'
 )
